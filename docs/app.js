@@ -28,7 +28,89 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260528a";
+const APP_VERSION = "20260528c";
+
+const IDB_NAME = "earTrainingSamples";
+const IDB_STORE = "files";
+const IDB_VERSION = 1;
+
+function getPersistentSampleKey(url) {
+  const relativePath = relativeAssetPathFromUrl(url);
+  return getPersistentSampleKeyForPath(relativePath);
+}
+
+function getPersistentSampleKeyForPath(relativePath) {
+  if (!relativePath) return null;
+  return `${getStoredAudioSource()}:${relativePath}`;
+}
+
+function alternateSampleRelativePaths(relativePath) {
+  if (/\.wav$/i.test(relativePath)) {
+    return [relativePath, relativePath.replace(/\.wav$/i, ".ogg")];
+  }
+  if (/\.ogg$/i.test(relativePath)) {
+    return [relativePath, relativePath.replace(/\.ogg$/i, ".wav")];
+  }
+  return [relativePath];
+}
+
+async function readStoredSampleAny(relativePath) {
+  for (const candidate of alternateSampleRelativePaths(relativePath)) {
+    const key = getPersistentSampleKeyForPath(candidate);
+    if (!key) continue;
+    const stored = await readStoredSample(key);
+    if (stored) return stored;
+  }
+  return null;
+}
+
+async function openSampleDb() {
+  if (!("indexedDB" in globalThis)) return null;
+  return new Promise((resolve) => {
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(IDB_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+  });
+}
+
+async function readStoredSample(key) {
+  const db = await openSampleDb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    const tx = db.transaction(IDB_STORE, "readonly");
+    const request = tx.objectStore(IDB_STORE).get(key);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => resolve(null);
+  });
+}
+
+async function writeStoredSample(key, arrayBuffer) {
+  const db = await openSampleDb();
+  if (!db) return;
+  try {
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(arrayBuffer, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Ignore quota errors; network cache may still work.
+  }
+}
+
+async function requestPersistentStorage() {
+  if (navigator.storage?.persist) {
+    try {
+      await navigator.storage.persist();
+    } catch {
+      // Best effort only.
+    }
+  }
+}
 
 function isBlackKey(midi) {
   return BLACK_PC.has(midi % 12);
@@ -752,13 +834,13 @@ class AudioEngine {
         }
         if (this.bufferCache.has(url)) {
           progressState.done += 1;
-          onProgress?.(progressState.done, progressState.total, url);
+          onProgress?.(progressState.done, progressState.total, url, { fromCache: true });
           continue;
         }
-        onProgress?.(progressState.done, progressState.total, url);
-        await this.loadBuffer(url, { signal });
+        onProgress?.(progressState.done, progressState.total, url, { fromCache: false });
+        const fromCache = await this.loadBuffer(url, { signal });
         progressState.done += 1;
-        onProgress?.(progressState.done, progressState.total, url);
+        onProgress?.(progressState.done, progressState.total, url, { fromCache });
         if (isIPhone()) {
           await new Promise((resolve) => window.setTimeout(resolve, 0));
         }
@@ -766,10 +848,37 @@ class AudioEngine {
     }
   }
 
+  clearSampleCache() {
+    this.bufferCache.clear();
+    this.trimmedNoteCache.clear();
+  }
+
+  rememberDecodedBuffer(url, tryUrl, audioBuffer) {
+    this.bufferCache.set(url, audioBuffer);
+    this.bufferCache.set(tryUrl, audioBuffer);
+  }
+
   async loadBuffer(url, { signal = null } = {}) {
-    if (this.bufferCache.has(url)) return this.bufferCache.get(url);
+    if (this.bufferCache.has(url)) return true;
     if (signal?.aborted) {
       throw new Error("Loading cancelled");
+    }
+
+    const canonicalRelative = relativeAssetPathFromUrl(url);
+    const storeKey = getPersistentSampleKeyForPath(canonicalRelative);
+    if (canonicalRelative) {
+      try {
+        const stored = await readStoredSampleAny(canonicalRelative);
+        if (stored) {
+          const audioBuffer = await this.decodeFetchedAudio(stored, url);
+          this.rememberDecodedBuffer(url, url, audioBuffer);
+          return true;
+        }
+      } catch (error) {
+        if (signal?.aborted || error?.name === "AbortError") {
+          throw new Error("Loading cancelled");
+        }
+      }
     }
 
     let lastError = null;
@@ -777,7 +886,7 @@ class AudioEngine {
       if (this.bufferCache.has(tryUrl)) {
         const cached = this.bufferCache.get(tryUrl);
         this.bufferCache.set(url, cached);
-        return cached;
+        return true;
       }
       if (signal?.aborted) {
         throw new Error("Loading cancelled");
@@ -790,10 +899,12 @@ class AudioEngine {
           continue;
         }
         const arrayBuffer = await response.arrayBuffer();
+        if (storeKey) {
+          await writeStoredSample(storeKey, arrayBuffer);
+        }
         const audioBuffer = await this.decodeFetchedAudio(arrayBuffer, tryUrl);
-        this.bufferCache.set(url, audioBuffer);
-        this.bufferCache.set(tryUrl, audioBuffer);
-        return audioBuffer;
+        this.rememberDecodedBuffer(url, tryUrl, audioBuffer);
+        return false;
       } catch (error) {
         if (signal?.aborted || error?.name === "AbortError") {
           throw new Error("Loading cancelled");
@@ -1035,7 +1146,9 @@ class AudioEngine {
 
   async playNote(midi, when, durationSec) {
     const url = this.instrumentSamplePath(midi);
-    const buffer = await this.loadBuffer(url);
+    await this.loadBuffer(url);
+    const buffer = this.bufferCache.get(url);
+    if (!buffer) throw new Error(`Sample not loaded: ${url}`);
     this.scheduleNoteBuffer(buffer, midi, when, durationSec);
   }
 
@@ -1063,7 +1176,9 @@ class AudioEngine {
 
   async playSolfege(midi, when, durationSec) {
     const url = this.solfegePath(midi);
-    const buffer = await this.loadBuffer(url);
+    await this.loadBuffer(url);
+    const buffer = this.bufferCache.get(url);
+    if (!buffer) throw new Error(`Solfege sample not loaded: ${url}`);
     const trimmed = this.trimSolfegeForBeat(buffer, durationSec);
     this.playBuffer(trimmed, when, { gain: SOLFEGE_GAIN });
   }
@@ -1507,7 +1622,8 @@ class EarTrainingApp {
       }
     }
 
-    this.helpEl.textContent = `Connected · ${getAssetSourceLabel()} · v${APP_VERSION} · add to Home Screen`;
+    this.helpEl.textContent = `Connected · ${getAssetSourceLabel()} · v${APP_VERSION} · 1st Start saves samples on this device`;
+    void requestPersistentStorage();
   }
 
   getPreset() {
@@ -1652,11 +1768,12 @@ class EarTrainingApp {
     this.setControlsDisabled(false);
   }
 
-  formatLoadingStatus(done, total, url = "") {
+  formatLoadingStatus(done, total, url = "", { fromCache = false } = {}) {
     const fileName = url ? url.split("/").pop() : "";
+    const prefix = fromCache ? "Reading saved samples" : "Downloading samples";
     return fileName
-      ? `Loading samples ${done}/${total} · ${decodeURIComponent(fileName)}`
-      : `Loading samples ${done}/${total}...`;
+      ? `${prefix} ${done}/${total} · ${decodeURIComponent(fileName)}`
+      : `${prefix} ${done}/${total}...`;
   }
 
   async prepareSession(notes, beatSec) {
@@ -1674,12 +1791,13 @@ class EarTrainingApp {
       await this.audio.preloadNotes(
         notes,
         beatSecValue,
-        (done, total, url) => {
+        (done, total, url, meta = {}) => {
           if (!this.running) return;
-          this.setStatus(this.formatLoadingStatus(done, total, url));
+          this.setStatus(this.formatLoadingStatus(done, total, url, meta));
         },
         signal
       );
+      void requestPersistentStorage();
     } else {
       for (const midi of notes) {
         this.audio.getTrimmedNoteBuffer(midi, beatSecValue);
@@ -1704,6 +1822,7 @@ class EarTrainingApp {
   async startPassiveSession({ numNotes, beatSec, notes }) {
     await this.audio.ensurePlayback();
     const startAt = this.audio.ctx.currentTime + 0.2;
+    this.scheduleMetronomeGrid(startAt, beatSec, numNotes * 3);
 
     for (let i = 0; i < numNotes; i += 1) {
       if (!this.running) break;
@@ -1718,7 +1837,6 @@ class EarTrainingApp {
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 1`;
         this.keyboard.clearFeedback();
       });
-      this.maybeClick(noteStart);
       this.audio.scheduleNote(midi, noteStart, beatSec, this.audio.noteBeat1Gain);
 
       const beat2 = noteStart + beatSec;
@@ -1727,7 +1845,6 @@ class EarTrainingApp {
         this.setDisplay("?", "question");
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 2`;
       });
-      this.maybeClick(beat2);
 
       const beat3 = noteStart + 2 * beatSec;
       this.scheduleAt(beat3, () => {
@@ -1737,7 +1854,6 @@ class EarTrainingApp {
         this.keyboard.clearFeedback();
         this.keyboard.highlight(midi, true);
       });
-      this.maybeClick(beat3);
       this.audio.scheduleNote(midi, beat3, beatSec, this.audio.noteAnswerGain);
       this.audio.scheduleSolfege(midi, beat3, beatSec);
       this.scheduleAt(beat3 + beatSec, () => this.keyboard.highlight(midi, false));
@@ -1754,7 +1870,6 @@ class EarTrainingApp {
 
   async startInteractiveSession({ numNotes, beatSec, notes }) {
     let correctCount = 0;
-    const beatMs = beatSec * 1000;
     await this.audio.ensurePlayback();
 
     for (let i = 0; i < numNotes; i += 1) {
@@ -1762,19 +1877,22 @@ class EarTrainingApp {
 
       const targetMidi = randomChoice(notes);
       const index = i + 1;
+      const beat1 = this.audio.ctx.currentTime + 0.05;
+      const beat2 = beat1 + beatSec;
+      const beat3 = beat2 + beatSec;
 
       this.setDisplay("?", "question");
       this.keyboard.clearFeedback();
       this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 1 · Score ${correctCount}`;
 
-      this.maybeClickNow();
-      this.audio.noteNow(targetMidi, beatSec, this.audio.noteBeat1Gain);
-      if (!(await this.delay(beatMs))) break;
+      this.maybeClick(beat1);
+      this.audio.scheduleNote(targetMidi, beat1, beatSec, this.audio.noteBeat1Gain);
+      if (!(await this.waitUntilAudio(beat2))) break;
 
       this.setDisplay("?", "question");
       this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 2 · Score ${correctCount}`;
-      this.maybeClickNow();
-      if (!(await this.delay(beatMs))) break;
+      this.maybeClick(beat2);
+      if (!(await this.waitUntilAudio(beat3))) break;
 
       this.setDisplay("Tap", "tap");
       this.progressEl.textContent = `Note ${index} / ${numNotes} · Tap the key · Score ${correctCount}`;
@@ -1786,6 +1904,7 @@ class EarTrainingApp {
       if (isCorrect) correctCount += 1;
 
       this.keyboard.markAnswer(pressedMidi, targetMidi);
+      const answerAt = Math.max(beat3, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
         this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct");
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Correct · Score ${correctCount}/${index}`;
@@ -1795,9 +1914,10 @@ class EarTrainingApp {
           `Note ${index} / ${numNotes} · You: ${noteLabel(pressedMidi)} · Answer: ${solfegeDisplay(targetMidi)} · Score ${correctCount}/${index}`;
       }
 
-      this.audio.noteNow(targetMidi, beatSec, this.audio.noteAnswerGain);
-      this.audio.solfegeNow(targetMidi, beatSec);
-      if (!(await this.delay(beatMs))) break;
+      this.maybeClick(answerAt);
+      this.audio.scheduleNote(targetMidi, answerAt, beatSec, this.audio.noteAnswerGain);
+      this.audio.scheduleSolfege(targetMidi, answerAt, beatSec);
+      if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
     }
 
     if (!this.running) return;
