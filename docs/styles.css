@@ -241,7 +241,22 @@ html, body {
   transform: scale(1.04);
 }
 
-/* Answer syllable rainbow colors */
+.note-display.correct .result-mark {
+  color: #51cf66;
+  margin-right: 0.2em;
+}
+
+.note-display.wrong .result-mark {
+  color: #ff6b6b;
+  margin-right: 0.2em;
+}
+
+.note-display.correct .result-label,
+.note-display.wrong .result-label {
+  color: var(--accent);
+}
+
+/* Passive answer rainbow colors */
 .note-display.rainbow-pc-0 { color: #ff6b6b; }
 .note-display.rainbow-pc-2 { color: #ffa94d; }
 .note-display.rainbow-pc-4 { color: #ffd43b; }

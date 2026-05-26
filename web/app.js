@@ -2053,8 +2053,13 @@ class EarTrainingApp {
     this.keyboard.setInteractive(false);
   }
 
-  setDisplay(text, tone = "question", midi = null) {
-    this.noteDisplayEl.textContent = text;
+  setDisplay(text, tone = "question", midi = null, { mark = null } = {}) {
+    if (mark != null) {
+      this.noteDisplayEl.innerHTML =
+        `<span class="result-mark">${mark}</span><span class="result-label">${text}</span>`;
+    } else {
+      this.noteDisplayEl.textContent = text;
+    }
     this.noteDisplayEl.classList.remove(
       "question",
       "answer",
@@ -2070,8 +2075,10 @@ class EarTrainingApp {
       "rainbow-pc-11"
     );
     this.noteDisplayEl.classList.add(tone);
-    const rainbowClass = midi != null ? answerRainbowClass(midi) : "";
-    if (rainbowClass) this.noteDisplayEl.classList.add(rainbowClass);
+    if (this.modeEl.value === "passive" && midi != null) {
+      const rainbowClass = answerRainbowClass(midi);
+      if (rainbowClass) this.noteDisplayEl.classList.add(rainbowClass);
+    }
   }
 
   setStatus(text) {
@@ -2368,10 +2375,10 @@ class EarTrainingApp {
       this.keyboard.markAnswer(pressedMidi, targetMidi);
       const answerAt = Math.max(questionEnd, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
-        this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct", targetMidi);
+        this.setDisplay(solfegeDisplay(targetMidi), "correct", null, { mark: "✓" });
         this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
-        this.setDisplay(`✗ ${solfegeDisplay(targetMidi)}`, "wrong", targetMidi);
+        this.setDisplay(solfegeDisplay(targetMidi), "wrong", null, { mark: "×" });
         this.progressEl.textContent =
           `${index}/${numNotes} · ${noteLabel(pressedMidi)} → ${solfegeDisplay(targetMidi)} · ${correctCount}/${index}`;
       }
