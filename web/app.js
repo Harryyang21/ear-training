@@ -1880,6 +1880,10 @@ class EarTrainingApp {
     return !this.isBassMode();
   }
 
+  answerDisplay(midi) {
+    return this.isBassMode() ? noteLabel(midi) : solfegeDisplay(midi);
+  }
+
   getKeyboardRange() {
     if (this.isBassMode()) return BASS_RANGE;
     return this.getPreset();

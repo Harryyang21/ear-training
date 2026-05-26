@@ -36,7 +36,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530g";
+const APP_VERSION = "20260530h";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -1878,6 +1878,10 @@ class EarTrainingApp {
 
   usesSolfege() {
     return !this.isBassMode();
+  }
+
+  answerDisplay(midi) {
+    return this.isBassMode() ? noteLabel(midi) : solfegeDisplay(midi);
   }
 
   getKeyboardRange() {
