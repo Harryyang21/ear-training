@@ -162,11 +162,12 @@ function friendlyOrigin() {
 const DEFAULT_NUM_NOTES = 300;
 
 const MODE_SUBTITLES = {
-  passive: "2 beats listen · auto answer · lock screen OK",
-  interactive: "listen · tap the key when ready",
+  passive: "Two beats · auto reveal",
+  interactive: "One beat · tap to answer",
 };
 
-// Answer text rainbow: do re mi fa so la ti → 红橙黄绿青蓝紫
+const PRACTICE_TIME_STORAGE_KEY = "earTrainingPracticeMs";
+
 function answerRainbowClass(midi) {
   const pc = midi % 12;
   return DIATONIC.has(pc) ? `rainbow-pc-${pc}` : "";
@@ -174,6 +175,110 @@ function answerRainbowClass(midi) {
 
 function randomChoice(items) {
   return items[Math.floor(Math.random() * items.length)];
+}
+
+function formatPracticeTime(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+class PracticeTimeTracker {
+  constructor(onUpdate) {
+    this.onUpdate = onUpdate;
+    this.totalMs = this.loadStoredMs();
+    this.playingCount = 0;
+    this.segmentStart = null;
+    this.tickId = null;
+    this.handlePageHide = this.handlePageHide.bind(this);
+    window.addEventListener("pagehide", this.handlePageHide);
+    document.addEventListener("visibilitychange", this.handlePageHide);
+  }
+
+  loadStoredMs() {
+    try {
+      return Math.max(0, Number(localStorage.getItem(PRACTICE_TIME_STORAGE_KEY)) || 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  persist() {
+    try {
+      localStorage.setItem(PRACTICE_TIME_STORAGE_KEY, String(Math.floor(this.totalMs)));
+    } catch {
+      // Ignore private mode storage errors.
+    }
+  }
+
+  getTotalMs() {
+    let ms = this.totalMs;
+    if (this.segmentStart != null) {
+      ms += performance.now() - this.segmentStart;
+    }
+    return ms;
+  }
+
+  voiceStarted() {
+    this.playingCount += 1;
+    if (this.playingCount === 1) {
+      this.segmentStart = performance.now();
+      this.startTick();
+      this.onUpdate?.();
+    }
+  }
+
+  voiceEnded() {
+    if (this.playingCount <= 0) return;
+    this.playingCount -= 1;
+    if (this.playingCount === 0) {
+      this.flushSegment();
+      this.stopTick();
+      this.onUpdate?.();
+    }
+  }
+
+  resetPlaying() {
+    if (this.playingCount <= 0) return;
+    this.flushSegment();
+    this.playingCount = 0;
+    this.stopTick();
+    this.onUpdate?.();
+  }
+
+  flushSegment() {
+    if (this.segmentStart == null) return;
+    this.totalMs += performance.now() - this.segmentStart;
+    this.segmentStart = null;
+    this.persist();
+  }
+
+  startTick() {
+    if (this.tickId != null) return;
+    this.tickId = window.setInterval(() => this.onUpdate?.(), 1000);
+  }
+
+  stopTick() {
+    if (this.tickId == null) return;
+    window.clearInterval(this.tickId);
+    this.tickId = null;
+  }
+
+  handlePageHide() {
+    if (document.visibilityState !== "hidden") return;
+    if (this.playingCount > 0 && this.segmentStart != null) {
+      this.flushSegment();
+      this.segmentStart = performance.now();
+    } else {
+      this.persist();
+    }
+    this.onUpdate?.();
+  }
 }
 
 function encodePathSegments(relativePath) {
@@ -438,34 +543,34 @@ const METRONOME_FADE_SEC = 0.01;
 
 const INSTRUMENTS = {
   piano: {
-    label: "Piano · 钢琴",
+    label: "Piano",
     sfzRel: "samples/piano/UprightPianoKW-20220221.sfz",
     sampleFilter: (sample) => sample.endsWith("vL.ogg"),
   },
   violin: {
-    label: "Violin · 小提琴",
+    label: "Violin",
     sfzRel: "samples/instruments/violin/instrument.sfz",
     gain: 1.55,
   },
   guitar: {
-    label: "Guitar · 吉他",
+    label: "Guitar",
     sfzRel: "samples/instruments/guitar/instrument.sfz",
   },
   guzheng: {
-    label: "Guzheng · 古筝",
+    label: "Guzheng",
     sfzRel: "samples/instruments/guzheng/instrument.sfz",
   },
   erhu: {
-    label: "Erhu · 二胡",
+    label: "Erhu",
     sfzRel: "samples/instruments/erhu/instrument.sfz",
   },
   harp: {
-    label: "Harp · 竖琴",
+    label: "Harp",
     sfzRel: "samples/instruments/harp/instrument.sfz",
     gain: 1.55,
   },
   saxophone: {
-    label: "Saxophone · 萨克斯",
+    label: "Saxophone",
     sfzRel: "samples/instruments/saxophone/instrument.sfz",
   },
 };
@@ -493,6 +598,7 @@ class AudioEngine {
     this.warmPreloadController = null;
     this.instrumentRegionCache = new Map();
     this.playbackKeepalive = null;
+    this.practiceTracker = null;
     this.onVisibilityChange = this.onVisibilityChange.bind(this);
   }
 
@@ -605,6 +711,7 @@ class AudioEngine {
   registerVoice(source, gainNode) {
     this.activeVoices.push({ source, gainNode });
     this.scheduledSources.push(source);
+    this.practiceTracker?.voiceStarted();
   }
 
   releaseVoice(source) {
@@ -617,6 +724,7 @@ class AudioEngine {
       } catch {
         // Already disconnected.
       }
+      this.practiceTracker?.voiceEnded();
     }
     const index = this.scheduledSources.indexOf(source);
     if (index !== -1) this.scheduledSources.splice(index, 1);
@@ -648,6 +756,7 @@ class AudioEngine {
     }
     this.activeVoices = [];
     this.scheduledSources = [];
+    this.practiceTracker?.resetPlaying();
   }
 
   createMetronomeClickBuffer() {
@@ -1062,7 +1171,7 @@ class AudioEngine {
     if ("mediaSession" in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: "Ear Training",
-        artist: "Passive Quick · 被动快速",
+        artist: "Ear Training",
       });
       navigator.mediaSession.playbackState = "playing";
       try {
@@ -1169,6 +1278,10 @@ class AudioEngine {
     source.connect(this.master);
     source.start(startAt);
     source.stop(startAt + this.clickBuffer.duration + 0.001);
+    this.practiceTracker?.voiceStarted();
+    source.onended = () => {
+      this.practiceTracker?.voiceEnded();
+    };
   }
 
   clickNow() {
@@ -1467,7 +1580,7 @@ function instrumentLabelFromSampleUrl(url) {
       return config.label;
     }
   }
-  if (/\/solfege\//i.test(url)) return "Solfege · 唱名";
+  if (/\/solfege\//i.test(url)) return "Solfege";
   return "";
 }
 
@@ -1478,7 +1591,10 @@ function getBootstrapNotes() {
 
 class EarTrainingApp {
   constructor() {
+    this.practiceTimeEl = document.getElementById("practiceTime");
+    this.practiceTracker = new PracticeTimeTracker(() => this.updatePracticeTimeDisplay());
     this.audio = new AudioEngine();
+    this.audio.practiceTracker = this.practiceTracker;
     this.timeouts = [];
     this.running = false;
     this.samplesReady = false;
@@ -1514,9 +1630,15 @@ class EarTrainingApp {
     this.numNotesEl.value = String(DEFAULT_NUM_NOTES);
     this.updateModeHint();
     this.setDisplay("?", "question");
-    this.progressEl.textContent = "Loading all instruments...";
+    this.progressEl.textContent = "Loading samples...";
     this.setControlsDisabled(true);
+    this.updatePracticeTimeDisplay();
     void this.bootstrapSamples();
+  }
+
+  updatePracticeTimeDisplay() {
+    if (!this.practiceTimeEl) return;
+    this.practiceTimeEl.textContent = `Practiced ${formatPracticeTime(this.practiceTracker.getTotalMs())}`;
   }
 
   updateModeHint() {
