@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260527c";
+const APP_VERSION = "20260527d";
 
 function isBlackKey(midi) {
   return BLACK_PC.has(midi % 12);
@@ -395,7 +395,11 @@ function findSampleRegion(regions, midi) {
 const NOTE_BEAT1_GAIN = 0.92;
 const NOTE_ANSWER_GAIN = 0.32;
 const SOLFEGE_GAIN = 0.58;
-const METRONOME_CLICK_URL = assetPath("samples/metronome_click.wav");
+// Match ear_training.py METRONOME_VOLUME_DB = -20
+const METRONOME_GAIN = 0.1;
+const METRONOME_FREQ_HZ = 1800;
+const METRONOME_DURATION_SEC = 0.012;
+const METRONOME_FADE_SEC = 0.01;
 
 const INSTRUMENTS = {
   piano: {
@@ -460,25 +464,31 @@ class AudioEngine {
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     this.master = this.ctx.createGain();
     this.master.gain.value = 0.82;
+    this.compressor = this.ctx.createDynamicsCompressor();
+    this.compressor.threshold.value = -14;
+    this.compressor.knee.value = 8;
+    this.compressor.ratio.value = 3;
+    this.compressor.attack.value = 0.003;
+    this.compressor.release.value = 0.12;
+
+    const output = this.ctx.createGain();
+    output.gain.value = 1;
+    this.master.connect(this.compressor).connect(output);
 
     // Safari/iOS suspends Web Audio on lock screen unless output goes through
     // an HTMLMediaElement backed by a MediaStream.
     if (isIOSDevice()) {
       this.mediaStreamDest = this.ctx.createMediaStreamDestination();
-      this.master.connect(this.mediaStreamDest);
+      output.connect(this.mediaStreamDest);
       this.bridgeAudio = new Audio();
       this.bridgeAudio.srcObject = this.mediaStreamDest.stream;
       this.bridgeAudio.setAttribute("playsinline", "");
     } else {
-      this.master.connect(this.ctx.destination);
+      output.connect(this.ctx.destination);
     }
 
     await this.setInstrument(this.instrumentId);
-    try {
-      this.clickBuffer = await this.loadBuffer(METRONOME_CLICK_URL);
-    } catch {
-      this.clickBuffer = this.createClickBufferFallback();
-    }
+    this.clickBuffer = this.createMetronomeClickBuffer();
   }
 
   async setInstrument(instrumentId) {
@@ -576,25 +586,25 @@ class AudioEngine {
     this.scheduledSources = [];
   }
 
-  createClickBufferFallback() {
-    // Match ear_training.py: Sine(1800), 12ms, fade_out(10), -20 dB
-    const durationSec = 0.012;
-    const fadeOutSec = 0.01;
-    const freq = 1800;
-    const peak = 0.1;
+  createMetronomeClickBuffer() {
+    // Match ear_training.make_metronome_click(): Sine(1800), 12ms, fade_out(10ms), -20 dB
     const sampleRate = this.ctx.sampleRate;
-    const length = Math.max(1, Math.round(durationSec * sampleRate));
-    const fadeStart = Math.max(0, length - Math.round(fadeOutSec * sampleRate));
+    const length = Math.max(1, Math.round(METRONOME_DURATION_SEC * sampleRate));
+    const fadeSamples = Math.min(
+      length,
+      Math.max(1, Math.round(METRONOME_FADE_SEC * sampleRate))
+    );
+    const fadeStart = length - fadeSamples;
     const buffer = this.ctx.createBuffer(1, length, sampleRate);
     const data = buffer.getChannelData(0);
 
     for (let i = 0; i < length; i += 1) {
       const t = i / sampleRate;
       let env = 1;
-      if (i >= fadeStart && length > fadeStart) {
-        env = (length - i) / (length - fadeStart);
+      if (i >= fadeStart) {
+        env = (length - i) / fadeSamples;
       }
-      data[i] = Math.sin(2 * Math.PI * freq * t) * env * peak;
+      data[i] = Math.sin(2 * Math.PI * METRONOME_FREQ_HZ * t) * env * METRONOME_GAIN;
     }
 
     return buffer;
@@ -1058,15 +1068,10 @@ class AudioEngine {
     if (!this.ctx || !this.clickBuffer) return;
 
     const source = this.ctx.createBufferSource();
-    const gainNode = this.ctx.createGain();
     source.buffer = this.clickBuffer;
-    gainNode.gain.value = 1;
-    source.connect(gainNode).connect(this.master);
+    source.connect(this.master);
     source.start(when);
-    this.registerVoice(source, gainNode);
-    source.onended = () => {
-      this.releaseVoice(source);
-    };
+    source.stop(when + this.clickBuffer.duration + 0.001);
   }
 
   clickNow() {

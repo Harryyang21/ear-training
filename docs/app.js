@@ -395,7 +395,11 @@ function findSampleRegion(regions, midi) {
 const NOTE_BEAT1_GAIN = 0.92;
 const NOTE_ANSWER_GAIN = 0.32;
 const SOLFEGE_GAIN = 0.58;
-const METRONOME_CLICK_URL = assetPath("samples/metronome_click.wav");
+// Match ear_training.py METRONOME_VOLUME_DB = -20
+const METRONOME_GAIN = 0.1;
+const METRONOME_FREQ_HZ = 1800;
+const METRONOME_DURATION_SEC = 0.012;
+const METRONOME_FADE_SEC = 0.01;
 
 const INSTRUMENTS = {
   piano: {
