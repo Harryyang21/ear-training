@@ -27,7 +27,8 @@ serve_lan.bat
 serve_lan.ps1
 serve_public.bat
 serve_public.ps1
-index.html
+# Root redirect stub — not used by GitHub Pages (docs/index.html is the live entry)
+/index.html
 
 # Generated / scratch
 ear_training.mp3
