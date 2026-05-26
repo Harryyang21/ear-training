@@ -108,54 +108,8 @@ html, body {
   letter-spacing: 0.02em;
 }
 
-.field-mode {
-  gap: 8px;
-}
-
-.mode-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  padding: 4px;
-  border-radius: 12px;
-  background: #121a26;
-  border: 1px solid #243042;
-}
-
-.mode-tab {
-  padding: 9px 8px;
-  border: none;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.2;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.mode-tab.active {
-  background: linear-gradient(180deg, #5eb0ff, #3d8fe6);
-  color: #041018;
-  box-shadow: 0 2px 8px rgba(61, 143, 230, 0.35);
-}
-
-.mode-tab:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+.control-row-single {
+  grid-template-columns: 1fr;
 }
 
 .controls label.field {
@@ -332,6 +286,32 @@ html, body {
   border-top: none;
 }
 
+/* Do Re Mi Fa So La Ti → 红橙黄绿青蓝紫 */
+.key.white.rainbow-pc-0 { background: #ff6b6b; border-color: #fa5252; }
+.key.white.rainbow-pc-2 { background: #ffa94d; border-color: #fd7e14; }
+.key.white.rainbow-pc-4 { background: #ffd43b; border-color: #fab005; }
+.key.white.rainbow-pc-5 { background: #69db7c; border-color: #40c057; }
+.key.white.rainbow-pc-7 { background: #38d9a9; border-color: #20c997; }
+.key.white.rainbow-pc-9 { background: #4dabf7; border-color: #339af0; }
+.key.white.rainbow-pc-11 { background: #b197fc; border-color: #9775fa; }
+
+.key.white.rainbow-pc-0 .key-label,
+.key.white.rainbow-pc-2 .key-label,
+.key.white.rainbow-pc-4 .key-label { color: #1f2937; }
+
+.key.white.rainbow-pc-5 .key-label,
+.key.white.rainbow-pc-7 .key-label,
+.key.white.rainbow-pc-9 .key-label,
+.key.white.rainbow-pc-11 .key-label { color: #0f172a; }
+
+.key.white.rainbow-pc-0.active { background: #ff8787; box-shadow: inset 0 -6px 0 rgba(250, 82, 82, 0.7), 0 0 16px rgba(255, 107, 107, 0.55); }
+.key.white.rainbow-pc-2.active { background: #ffb866; box-shadow: inset 0 -6px 0 rgba(253, 126, 20, 0.7), 0 0 16px rgba(255, 169, 77, 0.55); }
+.key.white.rainbow-pc-4.active { background: #ffe066; box-shadow: inset 0 -6px 0 rgba(250, 176, 5, 0.7), 0 0 16px rgba(255, 212, 59, 0.55); }
+.key.white.rainbow-pc-5.active { background: #8ce99a; box-shadow: inset 0 -6px 0 rgba(64, 192, 87, 0.7), 0 0 16px rgba(105, 219, 124, 0.55); }
+.key.white.rainbow-pc-7.active { background: #63e6be; box-shadow: inset 0 -6px 0 rgba(32, 201, 151, 0.7), 0 0 16px rgba(56, 217, 169, 0.55); }
+.key.white.rainbow-pc-9.active { background: #74c0fc; box-shadow: inset 0 -6px 0 rgba(51, 154, 240, 0.7), 0 0 16px rgba(77, 171, 247, 0.55); }
+.key.white.rainbow-pc-11.active { background: #c5b3fd; box-shadow: inset 0 -6px 0 rgba(151, 117, 250, 0.7), 0 0 16px rgba(177, 151, 252, 0.55); }
+
 .key.black {
   position: absolute;
   top: 0;
@@ -480,11 +460,6 @@ html, body {
 
   .control-row {
     gap: 8px;
-  }
-
-  .mode-tab {
-    font-size: 0.78rem;
-    padding: 8px 6px;
   }
 
   .play-area {

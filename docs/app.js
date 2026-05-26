@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260528f";
+const APP_VERSION = "20260529a";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -163,8 +163,14 @@ const DEFAULT_NUM_NOTES = 300;
 
 const MODE_SUBTITLES = {
   passive: "2 beats listen · auto answer · lock screen OK",
-  interactive: "2 beats listen · tap the key",
+  interactive: "listen · tap the key when ready",
 };
+
+// Rainbow pitch classes: do re mi fa so la ti → 红橙黄绿青蓝紫
+function pitchClassName(midi) {
+  const pc = midi % 12;
+  return DIATONIC.has(pc) ? `rainbow-pc-${pc}` : "";
+}
 
 function randomChoice(items) {
   return items[Math.floor(Math.random() * items.length)];
@@ -1365,7 +1371,7 @@ class PianoKeyboard {
 
     for (const midi of whiteKeys) {
       const key = document.createElement("div");
-      key.className = "key white";
+      key.className = `key white ${pitchClassName(midi)}`.trim();
       key.dataset.midi = String(midi);
       key.innerHTML = `<span class="key-label">${noteLabel(midi)}</span>`;
       this.bindKeyPress(key, midi);
@@ -1482,7 +1488,6 @@ class EarTrainingApp {
     this.keyboard = null;
 
     this.modeEl = document.getElementById("mode");
-    this.modeTabsEl = document.querySelector(".mode-tabs");
     this.subtitleEl = document.getElementById("subtitle");
     this.metronomeEl = document.getElementById("metronome");
     this.instrumentEl = document.getElementById("instrument");
@@ -1502,24 +1507,12 @@ class EarTrainingApp {
     this.levelEl.addEventListener("change", () => {
       this.resetKeyboard();
     });
-    this.modeEl.addEventListener("change", () => {
-      this.syncModeTabs();
-      this.updateModeHint();
-    });
-    this.modeTabsEl?.querySelectorAll(".mode-tab").forEach((button) => {
-      button.addEventListener("click", () => {
-        if (button.disabled || this.modeEl.disabled) return;
-        this.modeEl.value = button.dataset.mode;
-        this.syncModeTabs();
-        this.updateModeHint();
-      });
-    });
+    this.modeEl.addEventListener("change", () => this.updateModeHint());
     this.instrumentEl.addEventListener("change", () => this.onInstrumentChange());
 
     this.resetKeyboard();
     this.numNotesEl.value = String(DEFAULT_NUM_NOTES);
     this.updateModeHint();
-    this.syncModeTabs();
     this.setDisplay("?", "question");
     this.progressEl.textContent = "Loading all instruments...";
     this.setControlsDisabled(true);
@@ -1529,16 +1522,6 @@ class EarTrainingApp {
   updateModeHint() {
     const mode = this.modeEl.value;
     this.subtitleEl.textContent = MODE_SUBTITLES[mode] || MODE_SUBTITLES.passive;
-  }
-
-  syncModeTabs() {
-    if (!this.modeTabsEl) return;
-    const value = this.modeEl.value;
-    for (const button of this.modeTabsEl.querySelectorAll(".mode-tab")) {
-      const active = button.dataset.mode === value;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", active ? "true" : "false");
-    }
   }
 
   isInteractiveMode() {
@@ -1806,9 +1789,6 @@ class EarTrainingApp {
     this.startBtn.disabled = disabled || !this.samplesReady;
     this.stopBtn.disabled = !disabled;
     this.modeEl.disabled = settingsLocked;
-    this.modeTabsEl?.querySelectorAll(".mode-tab").forEach((button) => {
-      button.disabled = settingsLocked;
-    });
     this.metronomeEl.disabled = settingsLocked;
     this.instrumentEl.disabled = settingsLocked;
     this.levelEl.disabled = settingsLocked;
@@ -1941,23 +1921,18 @@ class EarTrainingApp {
       const index = i + 1;
       const beat1 = this.audio.ctx.currentTime + 0.05;
       const beat2 = beat1 + beatSec;
-      const beat3 = beat2 + beatSec;
 
       this.setDisplay("?", "question");
       this.keyboard.clearFeedback();
-      this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 1 · Score ${correctCount}`;
+      this.progressEl.textContent = `Note ${index} / ${numNotes} · Listen · Score ${correctCount}`;
 
       this.maybeClick(beat1);
       this.audio.scheduleNote(targetMidi, beat1, beatSec, this.audio.noteBeat1Gain);
       if (!(await this.waitUntilAudio(beat2))) break;
 
-      this.setDisplay("?", "question");
-      this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 2 · Score ${correctCount}`;
-      this.maybeClick(beat2);
-      if (!(await this.waitUntilAudio(beat3))) break;
-
       this.setDisplay("Tap", "tap");
       this.progressEl.textContent = `Note ${index} / ${numNotes} · Tap the key · Score ${correctCount}`;
+      this.maybeClick(beat2);
 
       const pressedMidi = await this.waitForKeyPress();
       if (!this.running || pressedMidi === null) break;
@@ -1966,7 +1941,7 @@ class EarTrainingApp {
       if (isCorrect) correctCount += 1;
 
       this.keyboard.markAnswer(pressedMidi, targetMidi);
-      const answerAt = Math.max(beat3, this.audio.ctx.currentTime + 0.02);
+      const answerAt = Math.max(beat2, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
         this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct");
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Correct · Score ${correctCount}/${index}`;
