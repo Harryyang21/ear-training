@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260527b";
+const APP_VERSION = "20260527c";
 
 function isBlackKey(midi) {
   return BLACK_PC.has(midi % 12);
@@ -507,7 +507,11 @@ class AudioEngine {
   }
 
   instrumentFadeOutSec(durationSec) {
-    return Math.min(0.2, Math.max(0.008, durationSec / 4));
+    return Math.min(0.035, Math.max(0.01, durationSec / 10));
+  }
+
+  solfegeFadeOutSec(durationSec) {
+    return Math.min(0.035, Math.max(0.01, durationSec / 10));
   }
 
   haltAudibleOutput() {
@@ -555,8 +559,10 @@ class AudioEngine {
       try {
         gainNode.gain.cancelScheduledValues(now);
         if (immediate) {
-          gainNode.gain.setValueAtTime(0, now);
-          source.stop(now + 0.002);
+          const level = Math.max(gainNode.gain.value, 0.001);
+          gainNode.gain.setValueAtTime(level, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.018);
+          source.stop(now + 0.022);
         } else {
           source.stop();
         }
@@ -794,6 +800,7 @@ class AudioEngine {
 
     for (const midi of notes) {
       this.getTrimmedNoteBuffer(midi, beatSec);
+      this.getTrimmedSolfegeBuffer(midi, beatSec);
     }
   }
 
@@ -811,34 +818,34 @@ class AudioEngine {
     });
   }
 
-  trimAudioBuffer(buffer, durationSec) {
+  trimAudioBuffer(buffer, sourceDurationSec) {
     const sampleRate = buffer.sampleRate;
-    const totalSamples = Math.max(1, Math.min(buffer.length, Math.ceil(durationSec * sampleRate)));
-    const fadeSamples = Math.min(
-      totalSamples,
-      Math.max(
-        1,
-        Math.min(
-          Math.floor(0.2 * sampleRate),
-          Math.floor((durationSec / 4) * sampleRate)
-        )
-      )
+    const totalSamples = Math.max(
+      1,
+      Math.min(buffer.length, Math.ceil(sourceDurationSec * sampleRate))
     );
-    const trimmed = this.ctx.createBuffer(buffer.numberOfChannels, totalSamples, sampleRate);
-
-    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-      const source = buffer.getChannelData(channel);
-      const target = trimmed.getChannelData(channel);
-      for (let i = 0; i < totalSamples; i += 1) {
-        target[i] = source[i];
-      }
-      for (let i = 0; i < fadeSamples; i += 1) {
-        const index = totalSamples - fadeSamples + i;
-        const gain = 1 - i / fadeSamples;
-        target[index] *= gain;
-      }
+    if (totalSamples >= buffer.length) {
+      return buffer;
     }
 
+    const trimmed = this.ctx.createBuffer(buffer.numberOfChannels, totalSamples, sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+      trimmed.getChannelData(channel).set(buffer.getChannelData(channel).subarray(0, totalSamples));
+    }
+    return trimmed;
+  }
+
+  getTrimmedSolfegeBuffer(midi, durationSec) {
+    const url = this.solfegePath(midi);
+    const cacheKey = `solfege@${url}@${durationSec.toFixed(4)}`;
+    if (this.trimmedNoteCache.has(cacheKey)) {
+      return this.trimmedNoteCache.get(cacheKey);
+    }
+
+    const sourceBuffer = this.bufferCache.get(url);
+    if (!sourceBuffer) throw new Error(`Solfege sample not preloaded: ${url}`);
+    const trimmed = this.trimAudioBuffer(sourceBuffer, durationSec);
+    this.trimmedNoteCache.set(cacheKey, trimmed);
     return trimmed;
   }
 
@@ -893,9 +900,9 @@ class AudioEngine {
       const stopAt = when + duration;
       const fadeOutSec = fadeOut ?? this.instrumentFadeOutSec(duration);
       const fadeStart = Math.max(when + fadeIn, stopAt - fadeOutSec);
-      gainNode.gain.setValueAtTime(gain, fadeStart);
-      gainNode.gain.linearRampToValueAtTime(0, stopAt);
-      source.stop(stopAt + 0.005);
+      gainNode.gain.setValueAtTime(Math.max(gain, 0.001), fadeStart);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, stopAt);
+      // Let the trimmed buffer end naturally — avoid source.stop() pitch glitches on iOS.
     }
 
     return source;
@@ -1032,14 +1039,12 @@ class AudioEngine {
   }
 
   scheduleSolfege(midi, when, durationSec) {
-    const url = this.solfegePath(midi);
-    const buffer = this.bufferCache.get(url);
-    if (!buffer) throw new Error(`Solfege sample not preloaded: ${url}`);
+    const buffer = this.getTrimmedSolfegeBuffer(midi, durationSec);
     this.playBuffer(buffer, when, {
       gain: SOLFEGE_GAIN,
       duration: durationSec,
-      fadeIn: 0.002,
-      fadeOut: Math.min(0.08, Math.max(0.008, durationSec / 5)),
+      fadeIn: 0.001,
+      fadeOut: this.solfegeFadeOutSec(durationSec),
     });
   }
 
@@ -1644,6 +1649,7 @@ class EarTrainingApp {
     } else {
       for (const midi of notes) {
         this.audio.getTrimmedNoteBuffer(midi, beatSecValue);
+        this.audio.getTrimmedSolfegeBuffer(midi, beatSecValue);
       }
     }
 
