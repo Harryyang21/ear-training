@@ -36,7 +36,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530h";
+const APP_VERSION = "20260530i";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -1881,7 +1881,7 @@ class EarTrainingApp {
   }
 
   answerDisplay(midi) {
-    return this.isBassMode() ? noteLabel(midi) : solfegeDisplay(midi);
+    return solfegeDisplay(midi);
   }
 
   getKeyboardRange() {
@@ -2379,17 +2379,19 @@ class EarTrainingApp {
       this.keyboard.markAnswer(pressedMidi, targetMidi);
       const answerAt = Math.max(questionEnd, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
-        this.setDisplay(solfegeDisplay(targetMidi), "correct", null, { mark: "✓" });
+        this.setDisplay(this.answerDisplay(targetMidi), "correct", null, { mark: "✓" });
         this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
-        this.setDisplay(solfegeDisplay(targetMidi), "wrong", null, { mark: "×" });
+        this.setDisplay(this.answerDisplay(targetMidi), "wrong", null, { mark: "×" });
         this.progressEl.textContent =
-          `${index}/${numNotes} · ${noteLabel(pressedMidi)} → ${solfegeDisplay(targetMidi)} · ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${noteLabel(pressedMidi)} → ${this.answerDisplay(targetMidi)} · ${correctCount}/${index}`;
       }
 
       this.maybeClick(answerAt);
       this.audio.scheduleNote(targetMidi, answerAt, beatSec, this.audio.noteAnswerGain);
-      this.audio.scheduleSolfege(targetMidi, answerAt, beatSec);
+      if (this.usesSolfege()) {
+        this.audio.scheduleSolfege(targetMidi, answerAt, beatSec);
+      }
       if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
     }
 
