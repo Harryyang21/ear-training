@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260529a";
+const APP_VERSION = "20260529b";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -166,8 +166,8 @@ const MODE_SUBTITLES = {
   interactive: "listen · tap the key when ready",
 };
 
-// Rainbow pitch classes: do re mi fa so la ti → 红橙黄绿青蓝紫
-function pitchClassName(midi) {
+// Answer text rainbow: do re mi fa so la ti → 红橙黄绿青蓝紫
+function answerRainbowClass(midi) {
   const pc = midi % 12;
   return DIATONIC.has(pc) ? `rainbow-pc-${pc}` : "";
 }
@@ -1371,7 +1371,7 @@ class PianoKeyboard {
 
     for (const midi of whiteKeys) {
       const key = document.createElement("div");
-      key.className = `key white ${pitchClassName(midi)}`.trim();
+      key.className = "key white";
       key.dataset.midi = String(midi);
       key.innerHTML = `<span class="key-label">${noteLabel(midi)}</span>`;
       this.bindKeyPress(key, midi);
@@ -1669,10 +1669,25 @@ class EarTrainingApp {
     this.keyboard.setInteractive(false);
   }
 
-  setDisplay(text, tone = "question") {
+  setDisplay(text, tone = "question", midi = null) {
     this.noteDisplayEl.textContent = text;
-    this.noteDisplayEl.classList.remove("question", "answer", "correct", "wrong", "tap");
+    this.noteDisplayEl.classList.remove(
+      "question",
+      "answer",
+      "correct",
+      "wrong",
+      "tap",
+      "rainbow-pc-0",
+      "rainbow-pc-2",
+      "rainbow-pc-4",
+      "rainbow-pc-5",
+      "rainbow-pc-7",
+      "rainbow-pc-9",
+      "rainbow-pc-11"
+    );
     this.noteDisplayEl.classList.add(tone);
+    const rainbowClass = midi != null ? answerRainbowClass(midi) : "";
+    if (rainbowClass) this.noteDisplayEl.classList.add(rainbowClass);
   }
 
   setStatus(text) {
@@ -1891,7 +1906,7 @@ class EarTrainingApp {
       const beat3 = noteStart + 2 * beatSec;
       this.scheduleAt(beat3, () => {
         if (!this.running) return;
-        this.setDisplay(solfegeDisplay(midi), "answer");
+        this.setDisplay(solfegeDisplay(midi), "answer", midi);
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Answer`;
         this.keyboard.clearFeedback();
         this.keyboard.highlight(midi, true);
@@ -1943,10 +1958,10 @@ class EarTrainingApp {
       this.keyboard.markAnswer(pressedMidi, targetMidi);
       const answerAt = Math.max(beat2, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
-        this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct");
+        this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct", targetMidi);
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Correct · Score ${correctCount}/${index}`;
       } else {
-        this.setDisplay(`✗ ${solfegeDisplay(targetMidi)}`, "wrong");
+        this.setDisplay(`✗ ${solfegeDisplay(targetMidi)}`, "wrong", targetMidi);
         this.progressEl.textContent =
           `Note ${index} / ${numNotes} · You: ${noteLabel(pressedMidi)} · Answer: ${solfegeDisplay(targetMidi)} · Score ${correctCount}/${index}`;
       }
