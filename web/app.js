@@ -641,7 +641,7 @@ class AudioEngine {
     this.noteBeat1Gain = NOTE_BEAT1_GAIN;
     this.noteAnswerGain = NOTE_ANSWER_GAIN;
     this.clickBuffer = null;
-    this.referenceABuffer = null;
+    this.referenceAVoice = null;
     this.activeVoices = [];
     this.scheduledSources = [];
     this.mediaStreamDest = null;
