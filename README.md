@@ -1,17 +1,37 @@
-# Ear Training
+# 🎵 Ear Training
 
-Solfege ear training in the browser.
+Browser solfege ear training — listen, tap, build pitch memory.
 
 **Live:** https://harryyang21.github.io/ear-training/
 
-## Modes
+---
 
-- **Passive Quick** — 2 beats listen, auto solfege answer
-- **Find the Key** — 2 beats listen, tap the correct key
+## ✨ Highlights
 
-## Options
+- 🎹 **7 instruments** — piano, violin, guitar, guzheng, erhu, harp, saxophone
+- 🌈 **Rainbow answers** — Do Re Mi Fa So La Ti in red → purple
+- ⏱️ **Practice timer** — counts only while audio plays; saved across refresh
+- 📦 **Smart loading** — all samples preload on open; cached on device after first visit
+- 📱 **Mobile-ready** — works on phone; add to Home Screen for best results
 
-Piano, violin, guitar, guzheng, erhu, harp, saxophone · C4–C5 / G3–G4 / C3–C5 · BPM & metronome
+---
+
+## 🎯 Modes
+
+| Mode | What it does |
+|------|----------------|
+| **Passive** | Two beats to listen → answer reveals automatically |
+| **Interactive** | One beat → tap the key; A440 once at start |
+| **Bass** | Low range (E1–C3) · bass timbre · tap to answer |
+
+---
+
+## 🎛️ Controls
+
+- **Range** — Beginner C4–C5 · Regular G3–G4 · Advanced C3–C5
+- **A440** — reference tone anytime
+- **Replay** — hear the current question again
+- **Click** — metronome on/off
 
 ---
 
