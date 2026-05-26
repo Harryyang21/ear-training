@@ -36,7 +36,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530i";
+const APP_VERSION = "20260530j";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
