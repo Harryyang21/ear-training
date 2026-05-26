@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260527f";
+const APP_VERSION = "20260528a";
 
 function isBlackKey(midi) {
   return BLACK_PC.has(midi % 12);
@@ -1507,7 +1507,7 @@ class EarTrainingApp {
       }
     }
 
-    this.helpEl.textContent = `Connected · ${getAssetSourceLabel()} · v${APP_VERSION} · add to Home Screen`;
+    this.helpEl.textContent = `Connected · ${getAssetSourceLabel()} · v${APP_VERSION} · add to Home Screen · samples cache on first use`;
   }
 
   getPreset() {
@@ -1587,6 +1587,31 @@ class EarTrainingApp {
     return new Promise((resolve) => {
       this.schedule(() => resolve(this.running), ms);
     });
+  }
+
+  waitUntilAudio(audioTime) {
+    return new Promise((resolve) => {
+      const tick = () => {
+        if (!this.running) {
+          resolve(false);
+          return;
+        }
+        const remainingMs = (audioTime - this.audio.ctx.currentTime) * 1000;
+        if (remainingMs <= 4) {
+          resolve(true);
+          return;
+        }
+        this.schedule(() => resolve(this.running), remainingMs);
+      };
+      tick();
+    });
+  }
+
+  scheduleMetronomeGrid(startAt, beatSec, totalBeats) {
+    if (!this.metronomeEnabled()) return;
+    for (let beat = 0; beat < totalBeats; beat += 1) {
+      this.audio.playClick(startAt + beat * beatSec);
+    }
   }
 
   waitForKeyPress() {
@@ -1679,6 +1704,7 @@ class EarTrainingApp {
   async startPassiveSession({ numNotes, beatSec, notes }) {
     await this.audio.ensurePlayback();
     const startAt = this.audio.ctx.currentTime + 0.2;
+    this.scheduleMetronomeGrid(startAt, beatSec, numNotes * 3);
 
     for (let i = 0; i < numNotes; i += 1) {
       if (!this.running) break;
@@ -1693,7 +1719,6 @@ class EarTrainingApp {
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 1`;
         this.keyboard.clearFeedback();
       });
-      this.maybeClick(noteStart);
       this.audio.scheduleNote(midi, noteStart, beatSec, this.audio.noteBeat1Gain);
 
       const beat2 = noteStart + beatSec;
@@ -1702,7 +1727,6 @@ class EarTrainingApp {
         this.setDisplay("?", "question");
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 2`;
       });
-      this.maybeClick(beat2);
 
       const beat3 = noteStart + 2 * beatSec;
       this.scheduleAt(beat3, () => {
@@ -1712,7 +1736,6 @@ class EarTrainingApp {
         this.keyboard.clearFeedback();
         this.keyboard.highlight(midi, true);
       });
-      this.maybeClick(beat3);
       this.audio.scheduleNote(midi, beat3, beatSec, this.audio.noteAnswerGain);
       this.audio.scheduleSolfege(midi, beat3, beatSec);
       this.scheduleAt(beat3 + beatSec, () => this.keyboard.highlight(midi, false));
@@ -1729,7 +1752,6 @@ class EarTrainingApp {
 
   async startInteractiveSession({ numNotes, beatSec, notes }) {
     let correctCount = 0;
-    const beatMs = beatSec * 1000;
     await this.audio.ensurePlayback();
 
     for (let i = 0; i < numNotes; i += 1) {
@@ -1737,19 +1759,22 @@ class EarTrainingApp {
 
       const targetMidi = randomChoice(notes);
       const index = i + 1;
+      const beat1 = this.audio.ctx.currentTime + 0.05;
+      const beat2 = beat1 + beatSec;
+      const beat3 = beat2 + beatSec;
 
       this.setDisplay("?", "question");
       this.keyboard.clearFeedback();
       this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 1 · Score ${correctCount}`;
 
-      this.maybeClickNow();
-      this.audio.noteNow(targetMidi, beatSec, this.audio.noteBeat1Gain);
-      if (!(await this.delay(beatMs))) break;
+      this.maybeClick(beat1);
+      this.audio.scheduleNote(targetMidi, beat1, beatSec, this.audio.noteBeat1Gain);
+      if (!(await this.waitUntilAudio(beat2))) break;
 
       this.setDisplay("?", "question");
       this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 2 · Score ${correctCount}`;
-      this.maybeClickNow();
-      if (!(await this.delay(beatMs))) break;
+      this.maybeClick(beat2);
+      if (!(await this.waitUntilAudio(beat3))) break;
 
       this.setDisplay("Tap", "tap");
       this.progressEl.textContent = `Note ${index} / ${numNotes} · Tap the key · Score ${correctCount}`;
@@ -1761,6 +1786,7 @@ class EarTrainingApp {
       if (isCorrect) correctCount += 1;
 
       this.keyboard.markAnswer(pressedMidi, targetMidi);
+      const answerAt = Math.max(beat3, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
         this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct");
         this.progressEl.textContent = `Note ${index} / ${numNotes} · Correct · Score ${correctCount}/${index}`;
@@ -1770,9 +1796,10 @@ class EarTrainingApp {
           `Note ${index} / ${numNotes} · You: ${noteLabel(pressedMidi)} · Answer: ${solfegeDisplay(targetMidi)} · Score ${correctCount}/${index}`;
       }
 
-      this.audio.noteNow(targetMidi, beatSec, this.audio.noteAnswerGain);
-      this.audio.solfegeNow(targetMidi, beatSec);
-      if (!(await this.delay(beatMs))) break;
+      this.maybeClick(answerAt);
+      this.audio.scheduleNote(targetMidi, answerAt, beatSec, this.audio.noteAnswerGain);
+      this.audio.scheduleSolfege(targetMidi, answerAt, beatSec);
+      if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
     }
 
     if (!this.running) return;

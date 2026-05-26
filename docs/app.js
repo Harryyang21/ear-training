@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260527f";
+const APP_VERSION = "20260528a";
 
 function isBlackKey(midi) {
   return BLACK_PC.has(midi % 12);
@@ -1587,6 +1587,31 @@ class EarTrainingApp {
     return new Promise((resolve) => {
       this.schedule(() => resolve(this.running), ms);
     });
+  }
+
+  waitUntilAudio(audioTime) {
+    return new Promise((resolve) => {
+      const tick = () => {
+        if (!this.running) {
+          resolve(false);
+          return;
+        }
+        const remainingMs = (audioTime - this.audio.ctx.currentTime) * 1000;
+        if (remainingMs <= 4) {
+          resolve(true);
+          return;
+        }
+        this.schedule(() => resolve(this.running), remainingMs);
+      };
+      tick();
+    });
+  }
+
+  scheduleMetronomeGrid(startAt, beatSec, totalBeats) {
+    if (!this.metronomeEnabled()) return;
+    for (let beat = 0; beat < totalBeats; beat += 1) {
+      this.audio.playClick(startAt + beat * beatSec);
+    }
   }
 
   waitForKeyPress() {
