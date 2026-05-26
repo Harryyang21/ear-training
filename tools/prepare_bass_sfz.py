@@ -44,7 +44,7 @@ def main() -> None:
             [
                 "<region>",
                 f"lokey={midi} hikey={midi} pitch_keycenter={center}",
-                f"sample=../piano/samples/{sample_name}",
+                f"sample=../../piano/samples/{sample_name}",
                 "",
             ]
         )

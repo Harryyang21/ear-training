@@ -333,6 +333,13 @@ function normalizeSampleRef(sampleRef) {
   return sample;
 }
 
+function normalizeResolvedSamplePath(relativePath) {
+  return String(relativePath).replace(
+    /^samples\/instruments\/piano\/samples\//,
+    "samples/piano/samples/"
+  );
+}
+
 function instrumentRelativeSamplePath(instrumentId, sampleRef) {
   const root = instrumentId === "piano" ? "samples/piano" : `samples/instruments/${instrumentId}`;
   const ref = String(sampleRef).replace(/\\/g, "/");
@@ -343,9 +350,9 @@ function instrumentRelativeSamplePath(instrumentId, sampleRef) {
       if (part === "..") resolved.pop();
       else resolved.push(part);
     }
-    return resolved.join("/");
+    return normalizeResolvedSamplePath(resolved.join("/"));
   }
-  return `${root}/${normalizeSampleRef(sampleRef)}`;
+  return normalizeResolvedSamplePath(`${root}/${normalizeSampleRef(sampleRef)}`);
 }
 
 function assetUrl(relativePath) {
@@ -975,7 +982,7 @@ class AudioEngine {
     return [...urls].sort((a, b) => a.localeCompare(b));
   }
 
-  async preloadUrls(list, concurrency, onProgress, signal, progressState, { silent = false } = {}) {
+  async preloadUrls(list, concurrency, onProgress, signal, progressState, { silent = false, continueOnError = false } = {}) {
     for (let i = 0; i < list.length; i += concurrency) {
       if (signal?.aborted) {
         throw new Error("Loading cancelled");
@@ -991,9 +998,18 @@ class AudioEngine {
           continue;
         }
         onProgress?.(progressState.done, progressState.total, url, { fromCache: false });
-        const fromCache = await this.loadBuffer(url, { signal, silent });
-        progressState.done += 1;
-        onProgress?.(progressState.done, progressState.total, url, { fromCache });
+        try {
+          const fromCache = await this.loadBuffer(url, { signal, silent });
+          progressState.done += 1;
+          onProgress?.(progressState.done, progressState.total, url, { fromCache });
+        } catch (error) {
+          if (continueOnError) {
+            progressState.done += 1;
+            onProgress?.(progressState.done, progressState.total, url, { fromCache: false, failed: true });
+            continue;
+          }
+          throw error;
+        }
         if (isIPhone()) {
           await new Promise((resolve) => window.setTimeout(resolve, 0));
         }
@@ -1896,7 +1912,7 @@ class EarTrainingApp {
         },
         signal,
         progressState,
-        { silent: true }
+        { silent: true, continueOnError: true }
       );
 
       if (signal.aborted) return;

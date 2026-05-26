@@ -70,29 +70,29 @@ html, body {
 }
 
 .subtitle {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.84rem;
 }
 
 .practice-time {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: #64748b;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
 }
 
 .controls {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .controls-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--panel);
 }
 
@@ -195,9 +195,9 @@ html, body {
 .play-area {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  height: clamp(220px, 34vh, 290px);
-  margin-bottom: 12px;
+  gap: 6px;
+  height: clamp(210px, 32vh, 280px);
+  margin-bottom: 10px;
 }
 
 .display-area {
@@ -371,38 +371,40 @@ html, body {
   font-size: 0.55rem;
 }
 
-.actions {
+.transport {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
 }
 
-.ref-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.btn.secondary {
-  background: #243042;
-  border-color: #36465a;
-  color: var(--text);
-  font-weight: 600;
-}
-
-.btn.secondary:not(:disabled):active {
-  background: #2f4054;
+.transport .btn {
+  width: 100%;
+  min-height: 44px;
 }
 
 .btn {
-  padding: 14px 16px;
-  border-radius: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--panel);
+  background: #121a26;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 600;
+}
+
+.btn.tool {
+  background: #1a2433;
+  border-color: #2d3a4f;
+  color: #c9d4e3;
+}
+
+.btn.tool:not(:disabled):active {
+  background: #243247;
 }
 
 .btn.primary {
@@ -412,28 +414,28 @@ html, body {
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.42;
 }
 
 .status {
-  margin: 14px 0 0;
+  margin: 8px 0 0;
   text-align: center;
   color: var(--muted);
-  font-size: 0.85rem;
-  min-height: 1.2em;
+  font-size: 0.8rem;
+  min-height: 1.1em;
 }
 
 .help {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   text-align: center;
   color: #64748b;
-  font-size: 0.78rem;
-  line-height: 1.45;
+  font-size: 0.74rem;
+  line-height: 1.4;
 }
 
 .footer {
-  margin-top: 18px;
-  padding-top: 12px;
+  margin-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
   text-align: center;
   color: #64748b;

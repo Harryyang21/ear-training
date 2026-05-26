@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 20260530d -->
-  <link rel="stylesheet" href="styles.css?v=20260530d">
+  <!-- build: 20260530e -->
+  <link rel="stylesheet" href="styles.css?v=20260530e">
 </head>
 <body>
   <div class="app">
@@ -85,14 +85,10 @@
     </section>
 
     <section class="transport">
-      <div class="transport-row">
-        <button id="refABtn" class="btn tool" type="button" disabled>A440</button>
-        <button id="replayBtn" class="btn tool" type="button" disabled>Replay</button>
-      </div>
-      <div class="transport-row transport-row-main">
-        <button id="startBtn" class="btn primary" disabled>Start</button>
-        <button id="stopBtn" class="btn" disabled>Stop</button>
-      </div>
+      <button id="refABtn" class="btn tool" type="button" disabled>A440</button>
+      <button id="replayBtn" class="btn tool" type="button" disabled>Replay</button>
+      <button id="startBtn" class="btn primary" disabled>Start</button>
+      <button id="stopBtn" class="btn" disabled>Stop</button>
     </section>
 
     <p id="status" class="status"></p>
@@ -107,7 +103,7 @@
   <script>
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=20260530d"></script>
+  <script src="app.js?v=20260530e"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

@@ -4,84 +4,84 @@
 
 <region>
 lokey=28 hikey=28 pitch_keycenter=27
-sample=../piano/samples/D#1vL.ogg
+sample=../../piano/samples/D#1vL.ogg
 
 <region>
 lokey=29 hikey=29 pitch_keycenter=30
-sample=../piano/samples/F#1vL.ogg
+sample=../../piano/samples/F#1vL.ogg
 
 <region>
 lokey=30 hikey=30 pitch_keycenter=30
-sample=../piano/samples/F#1vL.ogg
+sample=../../piano/samples/F#1vL.ogg
 
 <region>
 lokey=31 hikey=31 pitch_keycenter=30
-sample=../piano/samples/F#1vL.ogg
+sample=../../piano/samples/F#1vL.ogg
 
 <region>
 lokey=32 hikey=32 pitch_keycenter=33
-sample=../piano/samples/A1vL.ogg
+sample=../../piano/samples/A1vL.ogg
 
 <region>
 lokey=33 hikey=33 pitch_keycenter=33
-sample=../piano/samples/A1vL.ogg
+sample=../../piano/samples/A1vL.ogg
 
 <region>
 lokey=34 hikey=34 pitch_keycenter=33
-sample=../piano/samples/A1vL.ogg
+sample=../../piano/samples/A1vL.ogg
 
 <region>
 lokey=35 hikey=35 pitch_keycenter=36
-sample=../piano/samples/C2vL.ogg
+sample=../../piano/samples/C2vL.ogg
 
 <region>
 lokey=36 hikey=36 pitch_keycenter=36
-sample=../piano/samples/C2vL.ogg
+sample=../../piano/samples/C2vL.ogg
 
 <region>
 lokey=37 hikey=37 pitch_keycenter=36
-sample=../piano/samples/C2vL.ogg
+sample=../../piano/samples/C2vL.ogg
 
 <region>
 lokey=38 hikey=38 pitch_keycenter=39
-sample=../piano/samples/D#2vL.ogg
+sample=../../piano/samples/D#2vL.ogg
 
 <region>
 lokey=39 hikey=39 pitch_keycenter=39
-sample=../piano/samples/D#2vL.ogg
+sample=../../piano/samples/D#2vL.ogg
 
 <region>
 lokey=40 hikey=40 pitch_keycenter=39
-sample=../piano/samples/D#2vL.ogg
+sample=../../piano/samples/D#2vL.ogg
 
 <region>
 lokey=41 hikey=41 pitch_keycenter=42
-sample=../piano/samples/F#2vL.ogg
+sample=../../piano/samples/F#2vL.ogg
 
 <region>
 lokey=42 hikey=42 pitch_keycenter=42
-sample=../piano/samples/F#2vL.ogg
+sample=../../piano/samples/F#2vL.ogg
 
 <region>
 lokey=43 hikey=43 pitch_keycenter=42
-sample=../piano/samples/F#2vL.ogg
+sample=../../piano/samples/F#2vL.ogg
 
 <region>
 lokey=44 hikey=44 pitch_keycenter=45
-sample=../piano/samples/A2vL.ogg
+sample=../../piano/samples/A2vL.ogg
 
 <region>
 lokey=45 hikey=45 pitch_keycenter=45
-sample=../piano/samples/A2vL.ogg
+sample=../../piano/samples/A2vL.ogg
 
 <region>
 lokey=46 hikey=46 pitch_keycenter=45
-sample=../piano/samples/A2vL.ogg
+sample=../../piano/samples/A2vL.ogg
 
 <region>
 lokey=47 hikey=47 pitch_keycenter=48
-sample=../piano/samples/C3vL.ogg
+sample=../../piano/samples/C3vL.ogg
 
 <region>
 lokey=48 hikey=48 pitch_keycenter=48
-sample=../piano/samples/C3vL.ogg
+sample=../../piano/samples/C3vL.ogg

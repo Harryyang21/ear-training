@@ -372,8 +372,8 @@ html, body {
 }
 
 .transport {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
   margin-bottom: 8px;
@@ -382,15 +382,9 @@ html, body {
   background: var(--panel);
 }
 
-.transport-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.transport-row-main {
-  padding-top: 8px;
-  border-top: 1px solid #243042;
+.transport .btn {
+  width: 100%;
+  min-height: 44px;
 }
 
 .btn {
@@ -399,13 +393,11 @@ html, body {
   border: 1px solid var(--border);
   background: #121a26;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 600;
 }
 
 .btn.tool {
-  padding: 10px 12px;
-  font-size: 0.86rem;
   background: #1a2433;
   border-color: #2d3a4f;
   color: #c9d4e3;
@@ -419,8 +411,6 @@ html, body {
   background: linear-gradient(180deg, #5eb0ff, #3d8fe6);
   border-color: #3d8fe6;
   color: #041018;
-  font-size: 1rem;
-  padding: 13px 14px;
 }
 
 .btn:disabled {
