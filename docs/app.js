@@ -33,8 +33,10 @@ const SYLLABLE_DISPLAY = {
 };
 
 const JENNIFER_MIN_MIDI = 48;
+const SOLFEGE_MIN_MIDI = 48;
+const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530b";
+const APP_VERSION = "20260530d";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -550,6 +552,26 @@ function findSampleRegion(regions, midi) {
   return best;
 }
 
+function findSampleRegionOrNearest(regions, midi) {
+  const direct = findSampleRegion(regions, midi);
+  if (direct) return direct;
+  let best = null;
+  let bestDistance = Infinity;
+  for (const region of regions) {
+    const center = regionCenter(region);
+    const distance = Math.abs(midi - center);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = region;
+    }
+  }
+  return best;
+}
+
+function solfegeSupported(midi) {
+  return midi >= SOLFEGE_MIN_MIDI && midi <= SOLFEGE_MAX_MIDI;
+}
+
 const NOTE_BEAT1_GAIN = 0.92;
 const NOTE_ANSWER_GAIN = 0.32;
 const SOLFEGE_GAIN = 0.58;
@@ -595,7 +617,7 @@ const INSTRUMENTS = {
     label: "Bass",
     sfzRel: "samples/instruments/bass/instrument.sfz",
     gain: 1.15,
-    validateMidis: [36, 40, 45, 48],
+    validateMidis: [28, 36, 40, 45, 48],
   },
 };
 
@@ -840,7 +862,7 @@ class AudioEngine {
   }
 
   instrumentSamplePath(midi) {
-    const region = findSampleRegion(this.instrumentRegions, midi);
+    const region = findSampleRegionOrNearest(this.instrumentRegions, midi);
     if (!region) throw new Error(`No sample for MIDI ${midi}`);
     let relativePath = instrumentRelativeSamplePath(this.instrumentId, region.sample);
     if (this.instrumentId === "piano") {
@@ -873,17 +895,21 @@ class AudioEngine {
     this.warmPreloadController = null;
   }
 
-  notesPreloadUrls(notes) {
+  notesPreloadUrls(notes, { includeSolfege = true } = {}) {
     const urls = new Set();
     for (const midi of notes) {
-      urls.add(this.instrumentSamplePath(midi));
-      urls.add(this.solfegePath(midi));
+      if (this.hasInstrumentSample(midi)) {
+        urls.add(this.instrumentSamplePath(midi));
+      }
+      if (includeSolfege && solfegeSupported(midi)) {
+        urls.add(this.solfegePath(midi));
+      }
     }
     return this.sortPreloadUrls([...urls]);
   }
 
-  areNotesPreloaded(notes) {
-    return this.notesPreloadUrls(notes).every((url) => this.bufferCache.has(url));
+  areNotesPreloaded(notes, { includeSolfege = true } = {}) {
+    return this.notesPreloadUrls(notes, { includeSolfege }).every((url) => this.bufferCache.has(url));
   }
 
   decodeAudioDataSafely(arrayBuffer) {
@@ -927,9 +953,14 @@ class AudioEngine {
     return /\/solfege\//i.test(url);
   }
 
+  hasInstrumentSample(midi) {
+    return Boolean(findSampleRegion(this.instrumentRegions, midi));
+  }
+
   notesInstrumentPreloadUrls(notes) {
     const urls = new Set();
     for (const midi of notes) {
+      if (!this.hasInstrumentSample(midi)) continue;
       urls.add(this.instrumentSamplePath(midi));
     }
     return this.sortPreloadUrls([...urls]);
@@ -938,6 +969,7 @@ class AudioEngine {
   notesSolfegePreloadUrls(notes) {
     const urls = new Set();
     for (const midi of notes) {
+      if (!solfegeSupported(midi)) continue;
       urls.add(this.solfegePath(midi));
     }
     return [...urls].sort((a, b) => a.localeCompare(b));
@@ -1063,9 +1095,9 @@ class AudioEngine {
     });
   }
 
-  async preloadNotes(notes, beatSec, onProgress, signal = null) {
+  async preloadNotes(notes, beatSec, onProgress, signal = null, { includeSolfege = true } = {}) {
     const instrumentUrls = this.notesInstrumentPreloadUrls(notes);
-    const solfegeUrls = this.notesSolfegePreloadUrls(notes);
+    const solfegeUrls = includeSolfege ? this.notesSolfegePreloadUrls(notes) : [];
     const total = instrumentUrls.length + solfegeUrls.length;
     const progressState = { done: 0, total };
     const wavConcurrency = isIPhone() ? 1 : 6;
@@ -1079,8 +1111,12 @@ class AudioEngine {
     await this.preloadUrls(solfegeUrls, wavConcurrency, onProgress, signal, progressState);
 
     for (const midi of notes) {
-      this.getTrimmedNoteBuffer(midi, beatSec);
-      this.getTrimmedSolfegeBuffer(midi, beatSec);
+      if (this.hasInstrumentSample(midi)) {
+        this.getTrimmedNoteBuffer(midi, beatSec);
+      }
+      if (includeSolfege && solfegeSupported(midi)) {
+        this.getTrimmedSolfegeBuffer(midi, beatSec);
+      }
     }
   }
 
@@ -1306,6 +1342,7 @@ class AudioEngine {
   }
 
   scheduleSolfege(midi, when, durationSec) {
+    if (!solfegeSupported(midi)) return;
     const buffer = this.getTrimmedSolfegeBuffer(midi, durationSec);
     this.playBuffer(buffer, when, {
       gain: SOLFEGE_GAIN,
@@ -1733,6 +1770,10 @@ class EarTrainingApp {
     return this.modeEl.value === "interactive" || this.isBassMode();
   }
 
+  usesSolfege() {
+    return !this.isBassMode();
+  }
+
   getKeyboardRange() {
     if (this.isBassMode()) return BASS_RANGE;
     return this.getPreset();
@@ -2090,7 +2131,7 @@ class EarTrainingApp {
     const signal = this.audio.loadAbortController.signal;
     const beatSecValue = beatSec;
 
-    if (!this.audio.areNotesPreloaded(notes)) {
+    if (!this.audio.areNotesPreloaded(notes, { includeSolfege: this.usesSolfege() })) {
       await this.audio.preloadNotes(
         notes,
         beatSecValue,
@@ -2098,13 +2139,18 @@ class EarTrainingApp {
           if (!this.running) return;
           this.setStatus(this.formatLoadingStatus(done, total, url, meta));
         },
-        signal
+        signal,
+        { includeSolfege: this.usesSolfege() }
       );
       void requestPersistentStorage();
     } else {
       for (const midi of notes) {
-        this.audio.getTrimmedNoteBuffer(midi, beatSecValue);
-        this.audio.getTrimmedSolfegeBuffer(midi, beatSecValue);
+        if (this.audio.hasInstrumentSample(midi)) {
+          this.audio.getTrimmedNoteBuffer(midi, beatSecValue);
+        }
+        if (this.usesSolfege() && solfegeSupported(midi)) {
+          this.audio.getTrimmedSolfegeBuffer(midi, beatSecValue);
+        }
       }
     }
 

@@ -29,15 +29,15 @@ html, body {
 }
 
 .app {
-  max-width: 720px;
+  max-width: 680px;
   margin: 0 auto;
-  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  padding: 14px 14px calc(20px + env(safe-area-inset-bottom));
 }
 
 .header {
   position: relative;
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   padding-top: 2px;
 }
 
@@ -375,6 +375,24 @@ html, body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.ref-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.btn.secondary {
+  background: #243042;
+  border-color: #36465a;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.btn.secondary:not(:disabled):active {
+  background: #2f4054;
 }
 
 .btn {
