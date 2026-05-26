@@ -1887,7 +1887,7 @@ class EarTrainingApp {
   }
 
   async onInstrumentChange() {
-    if (this.running || !this.samplesReady) return;
+    if (this.running || !this.samplesReady || this.isBassMode()) return;
     try {
       if (!this.audio.ctx) await this.audio.init();
       this.audio.cancelWarmPreload();
@@ -2174,13 +2174,14 @@ class EarTrainingApp {
   async startInteractiveSession({ numNotes, beatSec, notes, withReferenceA = false }) {
     let correctCount = 0;
     await this.audio.ensurePlayback();
-    const refLead = withReferenceA ? REFERENCE_A_SEC + REFERENCE_A_GAP_SEC : 0;
 
     for (let i = 0; i < numNotes; i += 1) {
       if (!this.running) break;
 
       const targetMidi = randomChoice(notes);
       const index = i + 1;
+      const playRef = withReferenceA && i === 0;
+      const refLead = playRef ? REFERENCE_A_SEC + REFERENCE_A_GAP_SEC : 0;
       const base = this.audio.ctx.currentTime + 0.05;
       const questionStart = base + refLead;
       const questionEnd = questionStart + beatSec;
@@ -2191,7 +2192,7 @@ class EarTrainingApp {
       this.setDisplay("?", "question");
       this.keyboard.clearFeedback();
 
-      if (withReferenceA) {
+      if (playRef) {
         this.progressEl.textContent = `${index}/${numNotes} · A440 · ${correctCount}`;
         this.audio.playReferenceA(base);
         if (!(await this.waitUntilAudio(questionStart))) break;
