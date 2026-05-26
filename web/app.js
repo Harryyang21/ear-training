@@ -36,7 +36,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530f";
+const APP_VERSION = "20260530g";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -158,6 +158,45 @@ function isIOSDevice() {
     /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
   );
+}
+
+function encodeMonoBufferToWavUrl(buffer) {
+  const channel = buffer.getChannelData(0);
+  const sampleRate = buffer.sampleRate;
+  const numSamples = channel.length;
+  const bytesPerSample = 2;
+  const dataSize = numSamples * bytesPerSample;
+  const arrayBuffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(arrayBuffer);
+
+  const writeString = (offset, text) => {
+    for (let i = 0; i < text.length; i += 1) {
+      view.setUint8(offset + i, text.charCodeAt(i));
+    }
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * bytesPerSample, true);
+  view.setUint16(32, bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (let i = 0; i < numSamples; i += 1) {
+    const sample = Math.max(-1, Math.min(1, channel[i]));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+    offset += 2;
+  }
+
+  return URL.createObjectURL(new Blob([arrayBuffer], { type: "audio/wav" }));
 }
 
 function friendlyOrigin() {
@@ -641,7 +680,9 @@ class AudioEngine {
     this.noteBeat1Gain = NOTE_BEAT1_GAIN;
     this.noteAnswerGain = NOTE_ANSWER_GAIN;
     this.clickBuffer = null;
-    this.referenceAVoice = null;
+    this.referenceAWavUrl = null;
+    this.referenceAAudio = null;
+    this.referenceATimer = null;
     this.activeVoices = [];
     this.scheduledSources = [];
     this.mediaStreamDest = null;
@@ -675,6 +716,7 @@ class AudioEngine {
 
     await this.setInstrument(this.instrumentId);
     this.clickBuffer = this.createMetronomeClickBuffer();
+    this.referenceAWavUrl = encodeMonoBufferToWavUrl(this.createReferenceABuffer());
   }
 
   async setInstrument(instrumentId) {
@@ -840,55 +882,80 @@ class AudioEngine {
     return buffer;
   }
 
+  createReferenceABuffer() {
+    const sampleRate = this.ctx.sampleRate;
+    const length = Math.max(1, Math.round(REFERENCE_A_SEC * sampleRate));
+    const fadeSamples = Math.min(length, Math.max(1, Math.round(0.04 * sampleRate)));
+    const fadeStart = length - fadeSamples;
+    const buffer = this.ctx.createBuffer(1, length, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < length; i += 1) {
+      const t = i / sampleRate;
+      let env = 1;
+      if (i < fadeSamples) env = i / fadeSamples;
+      else if (i >= fadeStart) env = (length - i) / fadeSamples;
+      data[i] = Math.sin(2 * Math.PI * 440 * t) * env * REFERENCE_A_GAIN;
+    }
+
+    return buffer;
+  }
+
   stopReferenceA() {
-    if (!this.referenceAVoice) return;
-    const { osc, gainNode } = this.referenceAVoice;
+    if (this.referenceATimer != null) {
+      window.clearTimeout(this.referenceATimer);
+      this.referenceATimer = null;
+    }
+    if (!this.referenceAAudio) return;
     try {
-      osc.onended = null;
-      osc.stop();
-      osc.disconnect();
-      gainNode.disconnect();
+      this.referenceAAudio.onended = null;
+      this.referenceAAudio.pause();
+      this.referenceAAudio.currentTime = 0;
     } catch {
       // Already stopped.
     }
-    this.referenceAVoice = null;
+    this.referenceAAudio = null;
+  }
+
+  startReferenceAAudio() {
+    if (!this.referenceAWavUrl) return;
+
+    const audio = new Audio(this.referenceAWavUrl);
+    audio.setAttribute("playsinline", "");
+    audio.preload = "auto";
+    this.referenceAAudio = audio;
+    audio.onended = () => {
+      if (this.referenceAAudio === audio) {
+        this.referenceAAudio = null;
+      }
+    };
+    void audio.play().catch(() => {});
   }
 
   playReferenceA(when) {
-    if (!this.ctx) return;
-
     this.stopReferenceA();
+    if (!this.referenceAWavUrl) return;
+
+    if (when == null || !this.ctx) {
+      this.startReferenceAAudio();
+      return;
+    }
 
     const now = this.ctx.currentTime;
-    const startAt = when == null ? now : Math.max(when, now);
-    const endAt = startAt + REFERENCE_A_SEC;
-    const fadeSec = 0.04;
+    const delayMs = Math.max(0, (Math.max(when, now) - now) * 1000);
+    if (delayMs <= 1) {
+      this.startReferenceAAudio();
+      return;
+    }
 
-    const osc = this.ctx.createOscillator();
-    const gainNode = this.ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 440;
-
-    gainNode.gain.setValueAtTime(0, startAt);
-    gainNode.gain.linearRampToValueAtTime(REFERENCE_A_GAIN, startAt + fadeSec);
-    gainNode.gain.setValueAtTime(REFERENCE_A_GAIN, Math.max(startAt + fadeSec, endAt - fadeSec));
-    gainNode.gain.linearRampToValueAtTime(0.0001, endAt);
-
-    osc.connect(gainNode).connect(this.master);
-    osc.start(startAt);
-    osc.stop(endAt);
-
-    this.referenceAVoice = { osc, gainNode };
-    osc.onended = () => {
-      if (this.referenceAVoice?.osc === osc) {
-        this.referenceAVoice = null;
-      }
-    };
+    this.referenceATimer = window.setTimeout(() => {
+      this.referenceATimer = null;
+      this.startReferenceAAudio();
+    }, delayMs);
   }
 
   playReferenceANow() {
-    if (!this.ctx) return;
-    this.playReferenceA(this.ctx.currentTime);
+    this.playReferenceA(null);
   }
 
   instrumentSamplePath(midi) {
@@ -1826,9 +1893,9 @@ class EarTrainingApp {
     return diatonicNotes(preset.start, preset.end);
   }
 
-  playReferenceA() {
+  async playReferenceA() {
     if (!this.samplesReady) return;
-    void this.ensureAudioReadyForControls();
+    await this.ensureAudioReadyForControls();
     this.audio.playReferenceANow();
   }
 
