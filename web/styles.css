@@ -118,13 +118,8 @@ html, body {
   margin: 0;
 }
 
-.control-wide.hidden,
-#audioSourceWrap.hidden {
+.control-wide.hidden {
   display: none;
-}
-
-#modeSourceRow.single {
-  grid-template-columns: 1fr;
 }
 
 .controls select,

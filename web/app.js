@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260528c";
+const APP_VERSION = "20260528e";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -221,28 +221,9 @@ function assetUrl(relativePath) {
   return buildAssetUrl(getAssetRoot(), relativePath);
 }
 
-const AUDIO_SOURCE_STORAGE_KEY = "earTrainingAudioSource";
-
-function getCustomCdnUrl() {
-  const raw = window.EAR_TRAINING_CUSTOM_CDN ?? window.EAR_TRAINING_CDN ?? "";
-  return String(raw).replace(/\/$/, "");
-}
-
-function hasCustomCdn() {
-  return Boolean(getCustomCdnUrl());
-}
-
 function getStoredAudioSource() {
-  const stored = localStorage.getItem(AUDIO_SOURCE_STORAGE_KEY);
-  if (stored === "custom" && hasCustomCdn()) return "custom";
-  if (stored === "github") return "github";
-  if (location.hostname.endsWith("github.io")) return "github";
-  if (hasCustomCdn()) return "custom";
-  return "github";
-}
-
-function setStoredAudioSource(source) {
-  localStorage.setItem(AUDIO_SOURCE_STORAGE_KEY, source === "custom" ? "custom" : "github");
+  if (isCosHosted() || hasCustomCdn()) return "cos";
+  return "local";
 }
 
 function assetPath(path) {
@@ -254,39 +235,24 @@ function isCosHosted() {
 }
 
 function getAssetSourceLabel() {
-  if (isCosHosted()) return "Tencent COS";
-  if (getStoredAudioSource() === "custom" && hasCustomCdn()) return "custom CDN";
+  if (isCosHosted() || hasCustomCdn()) return "Tencent COS";
   if (getGithubPagesProjectRoot()) return "GitHub Pages";
-  if (window.EAR_TRAINING_USE_CDN === false) return "GitHub Pages";
-  if (getJsDelivrAssetRoots().length) return "jsDelivr CDN";
   return "local";
+}
+
+function getCustomCdnUrl() {
+  const raw = window.EAR_TRAINING_CUSTOM_CDN ?? window.EAR_TRAINING_CDN ?? "";
+  return String(raw).replace(/\/$/, "");
+}
+
+function hasCustomCdn() {
+  return Boolean(getCustomCdnUrl());
 }
 
 function getGithubPagesProjectRoot() {
   if (!location.hostname.endsWith("github.io")) return "";
   const [repo] = location.pathname.split("/").filter(Boolean);
   return repo && !repo.includes(".") ? `/${repo}` : "";
-}
-
-function getJsDelivrDocsRoot() {
-  const match = location.pathname.match(/^(.*\/gh\/[^/]+\/[^/]+@[^/]+\/docs)/);
-  return match ? `${location.origin}${match[1]}` : "";
-}
-
-function getJsDelivrAssetRoots() {
-  if (window.EAR_TRAINING_USE_CDN === false) return [];
-  const directRoot = getJsDelivrDocsRoot();
-  if (directRoot) return [directRoot];
-  if (!location.hostname.endsWith("github.io")) return [];
-  const [repo] = location.pathname.split("/").filter(Boolean);
-  if (!repo || repo.includes(".")) return [];
-  const user = location.hostname.split(".")[0];
-  const slug = `${user}/${repo}@main/docs`;
-  return [
-    `https://gcore.jsdelivr.net/gh/${slug}`,
-    `https://fastly.jsdelivr.net/gh/${slug}`,
-    `https://cdn.jsdelivr.net/gh/${slug}`,
-  ];
 }
 
 function getAssetRoot() {
@@ -296,20 +262,11 @@ function getAssetRoot() {
   if (isCosHosted()) {
     return "";
   }
-  if (getStoredAudioSource() === "custom" && hasCustomCdn()) {
+  if (hasCustomCdn()) {
     return getCustomCdnUrl();
   }
   const pagesRoot = getGithubPagesProjectRoot();
   if (pagesRoot) return pagesRoot;
-  const jsdelivrRoot = getJsDelivrDocsRoot();
-  if (jsdelivrRoot) return jsdelivrRoot;
-  if (hasCustomCdn()) return getCustomCdnUrl();
-  const cdnRoots = getJsDelivrAssetRoots();
-  if (cdnRoots.length) return cdnRoots[0];
-  if (location.hostname.endsWith("gitee.io") || location.hostname.endsWith("gitcode.host")) {
-    const [repo] = location.pathname.split("/").filter(Boolean);
-    return repo && !repo.includes(".") ? `/${repo}` : "";
-  }
   return "";
 }
 
@@ -320,16 +277,6 @@ function getAssetLoadRoots() {
 
   const pagesRoot = getGithubPagesProjectRoot();
   if (pagesRoot && !roots.includes(pagesRoot)) roots.push(pagesRoot);
-
-  const jsdelivrRoot = getJsDelivrDocsRoot();
-  if (jsdelivrRoot && !roots.includes(jsdelivrRoot)) roots.push(jsdelivrRoot);
-
-  for (const cdnRoot of getJsDelivrAssetRoots()) {
-    if (!roots.includes(cdnRoot)) roots.push(cdnRoot);
-  }
-
-  const customCdn = getCustomCdnUrl();
-  if (customCdn && !roots.includes(customCdn)) roots.push(customCdn);
 
   return roots;
 }
@@ -538,6 +485,7 @@ class AudioEngine {
     this.resumeWatchdog = null;
     this.loadAbortController = null;
     this.warmPreloadController = null;
+    this.instrumentRegionCache = new Map();
     this.playbackKeepalive = null;
     this.onVisibilityChange = this.onVisibilityChange.bind(this);
   }
@@ -570,16 +518,23 @@ class AudioEngine {
     this.noteBeat1Gain = NOTE_BEAT1_GAIN;
     this.noteAnswerGain = NOTE_ANSWER_GAIN;
 
-    const sfzText = await fetchTextAsset(config.sfzRel).catch((error) => {
-      throw new Error(`Failed to load instrument map (${error.message.replace(/^HTTP /, "")})`);
-    });
-    this.allInstrumentRegions = parseSfz(sfzText);
-    this.instrumentRegions = this.allInstrumentRegions.filter((region) =>
-      config.sampleFilter ? config.sampleFilter(region.sample) : true
-    );
-    if (!this.instrumentRegions.length) {
-      throw new Error(`No samples found for ${config.label}`);
+    let regions = this.instrumentRegionCache.get(this.instrumentId);
+    if (!regions) {
+      const sfzText = await fetchTextAsset(config.sfzRel).catch((error) => {
+        throw new Error(`Failed to load instrument map (${error.message.replace(/^HTTP /, "")})`);
+      });
+      const allRegions = parseSfz(sfzText);
+      regions = allRegions.filter((region) =>
+        config.sampleFilter ? config.sampleFilter(region.sample) : true
+      );
+      if (!regions.length) {
+        throw new Error(`No samples found for ${config.label}`);
+      }
+      this.instrumentRegionCache.set(this.instrumentId, regions);
     }
+
+    this.allInstrumentRegions = regions;
+    this.instrumentRegions = regions;
     for (const midi of [48, 55, 60, 67, 72]) {
       if (!findSampleRegion(this.instrumentRegions, midi)) {
         throw new Error(`${config.label} is missing samples for ${noteLabel(midi)}`);
@@ -747,11 +702,6 @@ class AudioEngine {
     this.warmPreloadController = null;
   }
 
-  clearSampleCache() {
-    this.bufferCache.clear();
-    this.trimmedNoteCache.clear();
-  }
-
   notesPreloadUrls(notes) {
     const urls = new Set();
     for (const midi of notes) {
@@ -788,8 +738,8 @@ class AudioEngine {
     return /\.ogg(?:$|[?#])/i.test(url);
   }
 
-  async decodeFetchedAudio(arrayBuffer, url) {
-    if (isIOSDevice()) {
+  async decodeFetchedAudio(arrayBuffer, url, { silent = false } = {}) {
+    if (isIOSDevice() && !silent) {
       await this.ensurePlayback();
     }
     let buffer = await this.decodeAudioDataSafely(arrayBuffer);
@@ -822,7 +772,7 @@ class AudioEngine {
     return [...urls].sort((a, b) => a.localeCompare(b));
   }
 
-  async preloadUrls(list, concurrency, onProgress, signal, progressState) {
+  async preloadUrls(list, concurrency, onProgress, signal, progressState, { silent = false } = {}) {
     for (let i = 0; i < list.length; i += concurrency) {
       if (signal?.aborted) {
         throw new Error("Loading cancelled");
@@ -838,7 +788,7 @@ class AudioEngine {
           continue;
         }
         onProgress?.(progressState.done, progressState.total, url, { fromCache: false });
-        const fromCache = await this.loadBuffer(url, { signal });
+        const fromCache = await this.loadBuffer(url, { signal, silent });
         progressState.done += 1;
         onProgress?.(progressState.done, progressState.total, url, { fromCache });
         if (isIPhone()) {
@@ -851,6 +801,23 @@ class AudioEngine {
   clearSampleCache() {
     this.bufferCache.clear();
     this.trimmedNoteCache.clear();
+    this.instrumentRegionCache.clear();
+  }
+
+  async collectAllPreloadUrls(notes) {
+    const instrumentUrls = new Set();
+    const savedId = this.instrumentId;
+
+    for (const instrumentId of Object.keys(INSTRUMENTS)) {
+      await this.setInstrument(instrumentId);
+      for (const url of this.notesInstrumentPreloadUrls(notes)) {
+        instrumentUrls.add(url);
+      }
+    }
+
+    await this.setInstrument(savedId);
+    const solfegeUrls = this.notesSolfegePreloadUrls(notes);
+    return this.sortPreloadUrls([...instrumentUrls, ...solfegeUrls]);
   }
 
   rememberDecodedBuffer(url, tryUrl, audioBuffer) {
@@ -858,7 +825,7 @@ class AudioEngine {
     this.bufferCache.set(tryUrl, audioBuffer);
   }
 
-  async loadBuffer(url, { signal = null } = {}) {
+  async loadBuffer(url, { signal = null, silent = false } = {}) {
     if (this.bufferCache.has(url)) return true;
     if (signal?.aborted) {
       throw new Error("Loading cancelled");
@@ -870,7 +837,7 @@ class AudioEngine {
       try {
         const stored = await readStoredSampleAny(canonicalRelative);
         if (stored) {
-          const audioBuffer = await this.decodeFetchedAudio(stored, url);
+          const audioBuffer = await this.decodeFetchedAudio(stored, url, { silent });
           this.rememberDecodedBuffer(url, url, audioBuffer);
           return true;
         }
@@ -902,7 +869,7 @@ class AudioEngine {
         if (storeKey) {
           await writeStoredSample(storeKey, arrayBuffer);
         }
-        const audioBuffer = await this.decodeFetchedAudio(arrayBuffer, tryUrl);
+        const audioBuffer = await this.decodeFetchedAudio(arrayBuffer, tryUrl, { silent });
         this.rememberDecodedBuffer(url, tryUrl, audioBuffer);
         return false;
       } catch (error) {
@@ -1186,11 +1153,16 @@ class AudioEngine {
   playClick(when) {
     if (!this.ctx || !this.clickBuffer) return;
 
+    const now = this.ctx.currentTime;
+    // Skip beats missed during lag/suspend; avoids a burst of catch-up clicks.
+    if (when < now - 0.03) return;
+
+    const startAt = Math.max(when, now + 0.001);
     const source = this.ctx.createBufferSource();
     source.buffer = this.clickBuffer;
     source.connect(this.master);
-    source.start(when);
-    source.stop(when + this.clickBuffer.duration + 0.001);
+    source.start(startAt);
+    source.stop(startAt + this.clickBuffer.duration + 0.001);
   }
 
   clickNow() {
@@ -1482,11 +1454,30 @@ class PianoKeyboard {
   }
 }
 
+function instrumentLabelFromSampleUrl(url) {
+  if (/\/samples\/piano\//i.test(url)) return INSTRUMENTS.piano.label;
+  for (const [id, config] of Object.entries(INSTRUMENTS)) {
+    if (id !== "piano" && url.includes(`/instruments/${id}/`)) {
+      return config.label;
+    }
+  }
+  if (/\/solfege\//i.test(url)) return "Solfege · 唱名";
+  return "";
+}
+
+function getBootstrapNotes() {
+  const preset = RANGE_PRESETS.advanced;
+  return diatonicNotes(preset.start, preset.end);
+}
+
 class EarTrainingApp {
   constructor() {
     this.audio = new AudioEngine();
     this.timeouts = [];
     this.running = false;
+    this.samplesReady = false;
+    this.bootstrapController = null;
+    this.metronomeScheduler = null;
     this.interactiveResolve = null;
     this.keyboard = null;
 
@@ -1504,9 +1495,6 @@ class EarTrainingApp {
     this.keyboardEl = document.getElementById("pianoKeyboard");
     this.startBtn = document.getElementById("startBtn");
     this.stopBtn = document.getElementById("stopBtn");
-    this.audioSourceEl = document.getElementById("audioSource");
-    this.audioSourceWrapEl = document.getElementById("audioSourceWrap");
-    this.modeSourceRowEl = document.getElementById("modeSourceRow");
 
     this.startBtn.addEventListener("click", () => this.start());
     this.stopBtn.addEventListener("click", () => this.stop());
@@ -1515,43 +1503,14 @@ class EarTrainingApp {
     });
     this.modeEl.addEventListener("change", () => this.updateModeHint());
     this.instrumentEl.addEventListener("change", () => this.onInstrumentChange());
-    this.audioSourceEl?.addEventListener("change", () => this.onAudioSourceChange());
-
-    this.initAudioSourceControl();
 
     this.resetKeyboard();
     this.numNotesEl.value = String(DEFAULT_NUM_NOTES);
     this.updateModeHint();
     this.setDisplay("?", "question");
-    this.checkServer();
-  }
-
-  initAudioSourceControl() {
-    if (!this.audioSourceEl) return;
-    if (isCosHosted() || !hasCustomCdn()) {
-      this.audioSourceWrapEl?.classList.add("hidden");
-      this.modeSourceRowEl?.classList.add("single");
-      return;
-    }
-    try {
-      if (!localStorage.getItem(AUDIO_SOURCE_STORAGE_KEY)) {
-        setStoredAudioSource("github");
-      }
-    } catch {
-      // Ignore private mode storage errors.
-    }
-    this.audioSourceEl.value = getStoredAudioSource();
-  }
-
-  async onAudioSourceChange() {
-    if (this.running || !this.audioSourceEl) return;
-    setStoredAudioSource(this.audioSourceEl.value);
-    this.audio.cancelWarmPreload();
-    this.audio.cancelPendingLoads();
-    this.audio.clearSampleCache();
-    this.setStatus("Switching audio source...");
-    await this.checkServer();
-    this.setStatus("");
+    this.progressEl.textContent = "Loading all instruments...";
+    this.setControlsDisabled(true);
+    void this.bootstrapSamples();
   }
 
   updateModeHint() {
@@ -1604,26 +1563,75 @@ class EarTrainingApp {
     try {
       await this.probeSampleAsset("samples/piano/UprightPianoKW-20220221.sfz");
     } catch (error) {
-      if (getStoredAudioSource() !== "custom" && hasCustomCdn()) {
-        setStoredAudioSource("custom");
-        if (this.audioSourceEl) this.audioSourceEl.value = "custom";
-        this.audio.clearSampleCache();
-        try {
-          await this.probeSampleAsset("samples/piano/UprightPianoKW-20220221.sfz");
-        } catch (retryError) {
-          this.helpEl.textContent = "Cannot load samples. Check network, then refresh.";
-          this.setStatus(`Server check failed: ${retryError.message}`);
-          return;
-        }
-      } else {
-        this.helpEl.textContent = "Cannot load samples. Try another audio source, then refresh.";
-        this.setStatus(`Server check failed: ${error.message}`);
-        return;
-      }
+      this.helpEl.textContent = "Cannot load samples from COS. Check network, then refresh.";
+      this.setStatus(`Server check failed: ${error.message}`);
+      this.progressEl.textContent = "Cannot connect · refresh to retry";
+      return false;
     }
 
-    this.helpEl.textContent = `Connected · ${getAssetSourceLabel()} · v${APP_VERSION} · 1st Start saves samples on this device`;
+    this.helpEl.textContent = `Connected · ${getAssetSourceLabel()} · v${APP_VERSION} · 1st visit saves samples on this device`;
     void requestPersistentStorage();
+    return true;
+  }
+
+  formatBootstrapStatus(done, total, url = "", { fromCache = false } = {}) {
+    const fileName = url ? url.split("/").pop() : "";
+    const group = instrumentLabelFromSampleUrl(url);
+    const prefix = fromCache ? "Reading saved samples" : "Downloading samples";
+    const groupPart = group ? ` · ${group}` : "";
+    return fileName
+      ? `${prefix} ${done}/${total}${groupPart} · ${decodeURIComponent(fileName)}`
+      : `${prefix} ${done}/${total}${groupPart}...`;
+  }
+
+  async bootstrapSamples() {
+    this.bootstrapController?.abort();
+    this.bootstrapController = new AbortController();
+    const signal = this.bootstrapController.signal;
+
+    const serverOk = await this.checkServer();
+    if (!serverOk || signal.aborted) return;
+
+    try {
+      if (!this.audio.ctx) await this.audio.init();
+      await this.audio.setInstrument(this.instrumentEl.value);
+
+      const notes = getBootstrapNotes();
+      const urls = await this.audio.collectAllPreloadUrls(notes);
+      const progressState = { done: 0, total: urls.length };
+      const concurrency = isIPhone() ? 1 : 6;
+
+      await this.audio.preloadUrls(
+        urls,
+        concurrency,
+        (done, total, url, meta = {}) => {
+          if (signal.aborted) return;
+          const status = this.formatBootstrapStatus(done, total, url, meta);
+          this.setStatus(status);
+          this.progressEl.textContent = status;
+        },
+        signal,
+        progressState,
+        { silent: true }
+      );
+
+      if (signal.aborted) return;
+
+      this.samplesReady = true;
+      this.setStatus("");
+      this.progressEl.textContent = "Ready · tap Start to begin";
+      this.setControlsDisabled(false);
+    } catch (error) {
+      if (signal.aborted || error.message === "Loading cancelled") return;
+      this.samplesReady = false;
+      this.setStatus(`Preload failed: ${error.message}. Refresh to retry.`);
+      this.progressEl.textContent = "Preload failed · refresh to retry";
+      this.startBtn.disabled = true;
+    } finally {
+      if (this.bootstrapController?.signal === signal) {
+        this.bootstrapController = null;
+      }
+    }
   }
 
   getPreset() {
@@ -1635,21 +1643,8 @@ class EarTrainingApp {
     return diatonicNotes(preset.start, preset.end);
   }
 
-  async warmPreloadForCurrentRange() {
-    if (this.running) return;
-    try {
-      if (!this.audio.ctx) await this.audio.init();
-      await this.audio.setInstrument(this.instrumentEl.value);
-      const notes = this.getCurrentRangeNotes();
-      const beatSec = 60 / (Number(this.bpmEl.value) || 60);
-      this.audio.warmPreloadNotes(notes, beatSec);
-    } catch {
-      // Background preload is best-effort.
-    }
-  }
-
   async onInstrumentChange() {
-    if (this.running) return;
+    if (this.running || !this.samplesReady) return;
     try {
       if (!this.audio.ctx) await this.audio.init();
       this.audio.cancelWarmPreload();
@@ -1689,6 +1684,7 @@ class EarTrainingApp {
   }
 
   clearSchedules() {
+    this.stopMetronomeScheduler();
     for (const id of this.timeouts) window.clearTimeout(id);
     this.timeouts = [];
     this.keyboard?.setInteractive(false);
@@ -1724,10 +1720,49 @@ class EarTrainingApp {
   }
 
   scheduleMetronomeGrid(startAt, beatSec, totalBeats) {
+    this.stopMetronomeScheduler();
     if (!this.metronomeEnabled()) return;
-    for (let beat = 0; beat < totalBeats; beat += 1) {
-      this.audio.playClick(startAt + beat * beatSec);
+
+    this.metronomeScheduler = {
+      startAt,
+      beatSec,
+      totalBeats,
+      nextBeat: 0,
+      timerId: null,
+    };
+
+    const tick = () => {
+      const scheduler = this.metronomeScheduler;
+      if (!this.running || !scheduler) return;
+      if (!this.metronomeEnabled()) {
+        this.stopMetronomeScheduler();
+        return;
+      }
+
+      const now = this.audio.ctx.currentTime;
+      const horizon = now + 0.3;
+      while (scheduler.nextBeat < scheduler.totalBeats) {
+        const when = scheduler.startAt + scheduler.nextBeat * scheduler.beatSec;
+        if (when > horizon) break;
+        this.audio.playClick(when);
+        scheduler.nextBeat += 1;
+      }
+
+      if (scheduler.nextBeat < scheduler.totalBeats && this.running) {
+        scheduler.timerId = window.setTimeout(tick, 80);
+      } else if (scheduler.nextBeat >= scheduler.totalBeats) {
+        this.stopMetronomeScheduler();
+      }
+    };
+
+    tick();
+  }
+
+  stopMetronomeScheduler() {
+    if (this.metronomeScheduler?.timerId != null) {
+      window.clearTimeout(this.metronomeScheduler.timerId);
     }
+    this.metronomeScheduler = null;
   }
 
   waitForKeyPress() {
@@ -1744,26 +1779,27 @@ class EarTrainingApp {
   }
 
   setControlsDisabled(disabled) {
-    this.startBtn.disabled = disabled;
+    const settingsLocked = disabled || !this.samplesReady;
+    this.startBtn.disabled = disabled || !this.samplesReady;
     this.stopBtn.disabled = !disabled;
-    this.modeEl.disabled = disabled;
-    this.metronomeEl.disabled = disabled;
-    this.instrumentEl.disabled = disabled;
-    this.levelEl.disabled = disabled;
-    this.bpmEl.disabled = disabled;
-    this.numNotesEl.disabled = disabled;
-    if (this.audioSourceEl) this.audioSourceEl.disabled = disabled;
+    this.modeEl.disabled = settingsLocked;
+    this.metronomeEl.disabled = settingsLocked;
+    this.instrumentEl.disabled = settingsLocked;
+    this.levelEl.disabled = settingsLocked;
+    this.bpmEl.disabled = settingsLocked;
+    this.numNotesEl.disabled = settingsLocked;
   }
 
   stop() {
     this.running = false;
+    this.stopMetronomeScheduler();
     this.audio.cancelPendingLoads();
     this.audio.stopAllVoices(true);
     this.audio.stopPlaybackKeepalive();
     this.audio.stopBackgroundMode();
     this.clearSchedules();
     this.setDisplay("?", "question");
-    this.progressEl.textContent = "Stopped";
+    this.progressEl.textContent = this.samplesReady ? "Ready · tap Start to begin" : "Stopped";
     this.setStatus("");
     this.setControlsDisabled(false);
   }
@@ -1929,7 +1965,7 @@ class EarTrainingApp {
   }
 
   async start() {
-    if (this.running) return;
+    if (this.running || !this.samplesReady) return;
 
     const preset = this.getPreset();
     const bpm = Number(this.bpmEl.value) || 60;
@@ -1949,7 +1985,7 @@ class EarTrainingApp {
     this.setControlsDisabled(true);
     this.resetKeyboard();
     this.setDisplay("?", "question");
-    this.setStatus("Loading samples...");
+    this.setStatus("");
 
     try {
       const beatSec = 60 / bpm;
