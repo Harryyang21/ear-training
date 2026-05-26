@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260529b";
+const APP_VERSION = "20260530a";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -1691,13 +1691,13 @@ class EarTrainingApp {
     try {
       await this.probeSampleAsset("samples/piano/UprightPianoKW-20220221.sfz");
     } catch (error) {
-      this.helpEl.textContent = "Cannot load samples from COS. Check network, then refresh.";
-      this.setStatus(`Server check failed: ${error.message}`);
-      this.progressEl.textContent = "Cannot connect · refresh to retry";
+      this.helpEl.textContent = "Cannot reach sample server. Check network and refresh.";
+      this.setStatus(`Connection failed: ${error.message}`);
+      this.progressEl.textContent = "Offline · refresh to retry";
       return false;
     }
 
-    this.helpEl.textContent = `Connected · ${getAssetSourceLabel()} · v${APP_VERSION} · 1st visit saves samples on this device`;
+    this.helpEl.textContent = `Ready · v${APP_VERSION}`;
     void requestPersistentStorage();
     return true;
   }
@@ -1705,10 +1705,10 @@ class EarTrainingApp {
   formatBootstrapStatus(done, total, url = "", { fromCache = false } = {}) {
     const fileName = url ? url.split("/").pop() : "";
     const group = instrumentLabelFromSampleUrl(url);
-    const prefix = fromCache ? "Reading saved samples" : "Downloading samples";
+    const prefix = fromCache ? "Cache" : "Download";
     const groupPart = group ? ` · ${group}` : "";
     return fileName
-      ? `${prefix} ${done}/${total}${groupPart} · ${decodeURIComponent(fileName)}`
+      ? `${prefix} ${done}/${total}${groupPart}`
       : `${prefix} ${done}/${total}${groupPart}...`;
   }
 
@@ -1747,13 +1747,13 @@ class EarTrainingApp {
 
       this.samplesReady = true;
       this.setStatus("");
-      this.progressEl.textContent = "Ready · tap Start to begin";
+      this.progressEl.textContent = "Ready";
       this.setControlsDisabled(false);
     } catch (error) {
       if (signal.aborted || error.message === "Loading cancelled") return;
       this.samplesReady = false;
-      this.setStatus(`Preload failed: ${error.message}. Refresh to retry.`);
-      this.progressEl.textContent = "Preload failed · refresh to retry";
+      this.setStatus(`Load failed: ${error.message}`);
+      this.progressEl.textContent = "Load failed · refresh";
       this.startBtn.disabled = true;
     } finally {
       if (this.bootstrapController?.signal === signal) {
@@ -1942,16 +1942,16 @@ class EarTrainingApp {
     this.audio.stopBackgroundMode();
     this.clearSchedules();
     this.setDisplay("?", "question");
-    this.progressEl.textContent = this.samplesReady ? "Ready · tap Start to begin" : "Stopped";
+    this.progressEl.textContent = this.samplesReady ? "Ready" : "Stopped";
     this.setStatus("");
     this.setControlsDisabled(false);
   }
 
   formatLoadingStatus(done, total, url = "", { fromCache = false } = {}) {
     const fileName = url ? url.split("/").pop() : "";
-    const prefix = fromCache ? "Reading saved samples" : "Downloading samples";
+    const prefix = fromCache ? "Cache" : "Download";
     return fileName
-      ? `${prefix} ${done}/${total} · ${decodeURIComponent(fileName)}`
+      ? `${prefix} ${done}/${total}`
       : `${prefix} ${done}/${total}...`;
   }
 
@@ -2013,7 +2013,7 @@ class EarTrainingApp {
       this.scheduleAt(noteStart, () => {
         if (!this.running) return;
         this.setDisplay("?", "question");
-        this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 1`;
+        this.progressEl.textContent = `${index}/${numNotes} · beat 1`;
         this.keyboard.clearFeedback();
       });
       this.audio.scheduleNote(midi, noteStart, beatSec, this.audio.noteBeat1Gain);
@@ -2022,14 +2022,14 @@ class EarTrainingApp {
       this.scheduleAt(beat2, () => {
         if (!this.running) return;
         this.setDisplay("?", "question");
-        this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 2`;
+        this.progressEl.textContent = `${index}/${numNotes} · beat 2`;
       });
 
       const beat3 = noteStart + 2 * beatSec;
       this.scheduleAt(beat3, () => {
         if (!this.running) return;
         this.setDisplay(solfegeDisplay(midi), "answer", midi);
-        this.progressEl.textContent = `Note ${index} / ${numNotes} · Answer`;
+        this.progressEl.textContent = `${index}/${numNotes} · answer`;
         this.keyboard.clearFeedback();
         this.keyboard.highlight(midi, true);
       });
@@ -2042,7 +2042,7 @@ class EarTrainingApp {
     this.schedule(() => {
       if (!this.running) return;
       this.setDisplay("Done", "answer");
-      this.progressEl.textContent = `${numNotes} notes completed`;
+      this.progressEl.textContent = `${numNotes} done`;
       this.stop();
     }, totalMs);
   }
@@ -2061,14 +2061,14 @@ class EarTrainingApp {
 
       this.setDisplay("?", "question");
       this.keyboard.clearFeedback();
-      this.progressEl.textContent = `Note ${index} / ${numNotes} · Listen · Score ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · listen · ${correctCount}`;
 
       this.maybeClick(beat1);
       this.audio.scheduleNote(targetMidi, beat1, beatSec, this.audio.noteBeat1Gain);
       if (!(await this.waitUntilAudio(beat2))) break;
 
       this.setDisplay("Tap", "tap");
-      this.progressEl.textContent = `Note ${index} / ${numNotes} · Tap the key · Score ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
       this.maybeClick(beat2);
 
       const pressedMidi = await this.waitForKeyPress();
@@ -2081,11 +2081,11 @@ class EarTrainingApp {
       const answerAt = Math.max(beat2, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
         this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct", targetMidi);
-        this.progressEl.textContent = `Note ${index} / ${numNotes} · Correct · Score ${correctCount}/${index}`;
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
         this.setDisplay(`✗ ${solfegeDisplay(targetMidi)}`, "wrong", targetMidi);
         this.progressEl.textContent =
-          `Note ${index} / ${numNotes} · You: ${noteLabel(pressedMidi)} · Answer: ${solfegeDisplay(targetMidi)} · Score ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${noteLabel(pressedMidi)} → ${solfegeDisplay(targetMidi)} · ${correctCount}/${index}`;
       }
 
       this.maybeClick(answerAt);
@@ -2098,7 +2098,7 @@ class EarTrainingApp {
 
     const accuracy = numNotes ? Math.round((correctCount / numNotes) * 100) : 0;
     this.setDisplay("Done", "answer");
-    this.progressEl.textContent = `${correctCount} / ${numNotes} correct (${accuracy}%)`;
+    this.progressEl.textContent = `${correctCount}/${numNotes} (${accuracy}%)`;
     this.stop();
   }
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -7,18 +7,19 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 20260529b -->
-  <link rel="stylesheet" href="styles.css?v=20260529b">
+  <!-- build: 20260530a -->
+  <link rel="stylesheet" href="styles.css?v=20260530a">
 </head>
 <body>
   <div class="app">
     <header class="header">
-      <label class="metronome-toggle" title="Metronome · 节拍器">
+      <label class="metronome-toggle" title="Metronome">
         <input id="metronome" type="checkbox" checked>
-        <span>节拍</span>
+        <span>Click</span>
       </label>
       <h1>Ear Training</h1>
-      <p id="subtitle" class="subtitle">2 beats listen · auto answer</p>
+      <p id="subtitle" class="subtitle">Two beats · auto reveal</p>
+      <p id="practiceTime" class="practice-time">Practiced 0:00</p>
     </header>
 
     <section class="controls">
@@ -27,23 +28,23 @@
           <label class="field">
             <span class="field-label">Mode</span>
             <select id="mode">
-              <option value="passive">Passive Quick · 被动快速</option>
-              <option value="interactive">Find the Key · 找键答题</option>
+              <option value="passive">Passive</option>
+              <option value="interactive">Interactive</option>
             </select>
           </label>
         </div>
 
         <div class="control-row">
           <label class="field">
-            <span class="field-label">Instrument · 音色</span>
+            <span class="field-label">Instrument</span>
             <select id="instrument">
-              <option value="piano">Piano · 钢琴</option>
-              <option value="violin">Violin · 小提琴</option>
-              <option value="guitar">Guitar · 吉他</option>
-              <option value="guzheng">Guzheng · 古筝</option>
-              <option value="erhu">Erhu · 二胡</option>
-              <option value="harp">Harp · 竖琴</option>
-              <option value="saxophone">Saxophone · 萨克斯</option>
+              <option value="piano">Piano</option>
+              <option value="violin">Violin</option>
+              <option value="guitar">Guitar</option>
+              <option value="guzheng">Guzheng</option>
+              <option value="erhu">Erhu</option>
+              <option value="harp">Harp</option>
+              <option value="saxophone">Saxophone</option>
             </select>
           </label>
           <label class="field">
@@ -73,7 +74,7 @@
       <div class="display-area">
         <div class="display-panel">
           <div id="noteDisplay" class="note-display">?</div>
-          <div id="progress" class="progress">Loading all instruments...</div>
+          <div id="progress" class="progress">Loading samples...</div>
         </div>
       </div>
 
@@ -97,10 +98,9 @@
   </div>
 
   <script>
-    // Sample audio is served from Tencent COS.
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=20260529b"></script>
+  <script src="app.js?v=20260530a"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

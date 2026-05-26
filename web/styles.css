@@ -75,6 +75,13 @@ html, body {
   font-size: 0.9rem;
 }
 
+.practice-time {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .controls {
   margin-bottom: 14px;
 }

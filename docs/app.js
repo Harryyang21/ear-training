@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260529b";
+const APP_VERSION = "20260530a";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -162,11 +162,12 @@ function friendlyOrigin() {
 const DEFAULT_NUM_NOTES = 300;
 
 const MODE_SUBTITLES = {
-  passive: "2 beats listen · auto answer · lock screen OK",
-  interactive: "listen · tap the key when ready",
+  passive: "Two beats · auto reveal",
+  interactive: "One beat · tap to answer",
 };
 
-// Answer text rainbow: do re mi fa so la ti → 红橙黄绿青蓝紫
+const PRACTICE_TIME_STORAGE_KEY = "earTrainingPracticeMs";
+
 function answerRainbowClass(midi) {
   const pc = midi % 12;
   return DIATONIC.has(pc) ? `rainbow-pc-${pc}` : "";
@@ -174,6 +175,110 @@ function answerRainbowClass(midi) {
 
 function randomChoice(items) {
   return items[Math.floor(Math.random() * items.length)];
+}
+
+function formatPracticeTime(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+class PracticeTimeTracker {
+  constructor(onUpdate) {
+    this.onUpdate = onUpdate;
+    this.totalMs = this.loadStoredMs();
+    this.playingCount = 0;
+    this.segmentStart = null;
+    this.tickId = null;
+    this.handlePageHide = this.handlePageHide.bind(this);
+    window.addEventListener("pagehide", this.handlePageHide);
+    document.addEventListener("visibilitychange", this.handlePageHide);
+  }
+
+  loadStoredMs() {
+    try {
+      return Math.max(0, Number(localStorage.getItem(PRACTICE_TIME_STORAGE_KEY)) || 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  persist() {
+    try {
+      localStorage.setItem(PRACTICE_TIME_STORAGE_KEY, String(Math.floor(this.totalMs)));
+    } catch {
+      // Ignore private mode storage errors.
+    }
+  }
+
+  getTotalMs() {
+    let ms = this.totalMs;
+    if (this.segmentStart != null) {
+      ms += performance.now() - this.segmentStart;
+    }
+    return ms;
+  }
+
+  voiceStarted() {
+    this.playingCount += 1;
+    if (this.playingCount === 1) {
+      this.segmentStart = performance.now();
+      this.startTick();
+      this.onUpdate?.();
+    }
+  }
+
+  voiceEnded() {
+    if (this.playingCount <= 0) return;
+    this.playingCount -= 1;
+    if (this.playingCount === 0) {
+      this.flushSegment();
+      this.stopTick();
+      this.onUpdate?.();
+    }
+  }
+
+  resetPlaying() {
+    if (this.playingCount <= 0) return;
+    this.flushSegment();
+    this.playingCount = 0;
+    this.stopTick();
+    this.onUpdate?.();
+  }
+
+  flushSegment() {
+    if (this.segmentStart == null) return;
+    this.totalMs += performance.now() - this.segmentStart;
+    this.segmentStart = null;
+    this.persist();
+  }
+
+  startTick() {
+    if (this.tickId != null) return;
+    this.tickId = window.setInterval(() => this.onUpdate?.(), 1000);
+  }
+
+  stopTick() {
+    if (this.tickId == null) return;
+    window.clearInterval(this.tickId);
+    this.tickId = null;
+  }
+
+  handlePageHide() {
+    if (document.visibilityState !== "hidden") return;
+    if (this.playingCount > 0 && this.segmentStart != null) {
+      this.flushSegment();
+      this.segmentStart = performance.now();
+    } else {
+      this.persist();
+    }
+    this.onUpdate?.();
+  }
 }
 
 function encodePathSegments(relativePath) {
@@ -438,34 +543,34 @@ const METRONOME_FADE_SEC = 0.01;
 
 const INSTRUMENTS = {
   piano: {
-    label: "Piano · 钢琴",
+    label: "Piano",
     sfzRel: "samples/piano/UprightPianoKW-20220221.sfz",
     sampleFilter: (sample) => sample.endsWith("vL.ogg"),
   },
   violin: {
-    label: "Violin · 小提琴",
+    label: "Violin",
     sfzRel: "samples/instruments/violin/instrument.sfz",
     gain: 1.55,
   },
   guitar: {
-    label: "Guitar · 吉他",
+    label: "Guitar",
     sfzRel: "samples/instruments/guitar/instrument.sfz",
   },
   guzheng: {
-    label: "Guzheng · 古筝",
+    label: "Guzheng",
     sfzRel: "samples/instruments/guzheng/instrument.sfz",
   },
   erhu: {
-    label: "Erhu · 二胡",
+    label: "Erhu",
     sfzRel: "samples/instruments/erhu/instrument.sfz",
   },
   harp: {
-    label: "Harp · 竖琴",
+    label: "Harp",
     sfzRel: "samples/instruments/harp/instrument.sfz",
     gain: 1.55,
   },
   saxophone: {
-    label: "Saxophone · 萨克斯",
+    label: "Saxophone",
     sfzRel: "samples/instruments/saxophone/instrument.sfz",
   },
 };
@@ -493,6 +598,7 @@ class AudioEngine {
     this.warmPreloadController = null;
     this.instrumentRegionCache = new Map();
     this.playbackKeepalive = null;
+    this.practiceTracker = null;
     this.onVisibilityChange = this.onVisibilityChange.bind(this);
   }
 
@@ -605,6 +711,7 @@ class AudioEngine {
   registerVoice(source, gainNode) {
     this.activeVoices.push({ source, gainNode });
     this.scheduledSources.push(source);
+    this.practiceTracker?.voiceStarted();
   }
 
   releaseVoice(source) {
@@ -617,6 +724,7 @@ class AudioEngine {
       } catch {
         // Already disconnected.
       }
+      this.practiceTracker?.voiceEnded();
     }
     const index = this.scheduledSources.indexOf(source);
     if (index !== -1) this.scheduledSources.splice(index, 1);
@@ -648,6 +756,7 @@ class AudioEngine {
     }
     this.activeVoices = [];
     this.scheduledSources = [];
+    this.practiceTracker?.resetPlaying();
   }
 
   createMetronomeClickBuffer() {
@@ -1062,7 +1171,7 @@ class AudioEngine {
     if ("mediaSession" in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: "Ear Training",
-        artist: "Passive Quick · 被动快速",
+        artist: "Ear Training",
       });
       navigator.mediaSession.playbackState = "playing";
       try {
@@ -1169,6 +1278,10 @@ class AudioEngine {
     source.connect(this.master);
     source.start(startAt);
     source.stop(startAt + this.clickBuffer.duration + 0.001);
+    this.practiceTracker?.voiceStarted();
+    source.onended = () => {
+      this.practiceTracker?.voiceEnded();
+    };
   }
 
   clickNow() {
@@ -1467,7 +1580,7 @@ function instrumentLabelFromSampleUrl(url) {
       return config.label;
     }
   }
-  if (/\/solfege\//i.test(url)) return "Solfege · 唱名";
+  if (/\/solfege\//i.test(url)) return "Solfege";
   return "";
 }
 
@@ -1478,7 +1591,10 @@ function getBootstrapNotes() {
 
 class EarTrainingApp {
   constructor() {
+    this.practiceTimeEl = document.getElementById("practiceTime");
+    this.practiceTracker = new PracticeTimeTracker(() => this.updatePracticeTimeDisplay());
     this.audio = new AudioEngine();
+    this.audio.practiceTracker = this.practiceTracker;
     this.timeouts = [];
     this.running = false;
     this.samplesReady = false;
@@ -1514,9 +1630,15 @@ class EarTrainingApp {
     this.numNotesEl.value = String(DEFAULT_NUM_NOTES);
     this.updateModeHint();
     this.setDisplay("?", "question");
-    this.progressEl.textContent = "Loading all instruments...";
+    this.progressEl.textContent = "Loading samples...";
     this.setControlsDisabled(true);
+    this.updatePracticeTimeDisplay();
     void this.bootstrapSamples();
+  }
+
+  updatePracticeTimeDisplay() {
+    if (!this.practiceTimeEl) return;
+    this.practiceTimeEl.textContent = `Practiced ${formatPracticeTime(this.practiceTracker.getTotalMs())}`;
   }
 
   updateModeHint() {
@@ -1569,13 +1691,13 @@ class EarTrainingApp {
     try {
       await this.probeSampleAsset("samples/piano/UprightPianoKW-20220221.sfz");
     } catch (error) {
-      this.helpEl.textContent = "Cannot load samples from COS. Check network, then refresh.";
-      this.setStatus(`Server check failed: ${error.message}`);
-      this.progressEl.textContent = "Cannot connect · refresh to retry";
+      this.helpEl.textContent = "Cannot reach sample server. Check network and refresh.";
+      this.setStatus(`Connection failed: ${error.message}`);
+      this.progressEl.textContent = "Offline · refresh to retry";
       return false;
     }
 
-    this.helpEl.textContent = `Connected · ${getAssetSourceLabel()} · v${APP_VERSION} · 1st visit saves samples on this device`;
+    this.helpEl.textContent = `Ready · v${APP_VERSION}`;
     void requestPersistentStorage();
     return true;
   }
@@ -1583,10 +1705,10 @@ class EarTrainingApp {
   formatBootstrapStatus(done, total, url = "", { fromCache = false } = {}) {
     const fileName = url ? url.split("/").pop() : "";
     const group = instrumentLabelFromSampleUrl(url);
-    const prefix = fromCache ? "Reading saved samples" : "Downloading samples";
+    const prefix = fromCache ? "Cache" : "Download";
     const groupPart = group ? ` · ${group}` : "";
     return fileName
-      ? `${prefix} ${done}/${total}${groupPart} · ${decodeURIComponent(fileName)}`
+      ? `${prefix} ${done}/${total}${groupPart}`
       : `${prefix} ${done}/${total}${groupPart}...`;
   }
 
@@ -1625,13 +1747,13 @@ class EarTrainingApp {
 
       this.samplesReady = true;
       this.setStatus("");
-      this.progressEl.textContent = "Ready · tap Start to begin";
+      this.progressEl.textContent = "Ready";
       this.setControlsDisabled(false);
     } catch (error) {
       if (signal.aborted || error.message === "Loading cancelled") return;
       this.samplesReady = false;
-      this.setStatus(`Preload failed: ${error.message}. Refresh to retry.`);
-      this.progressEl.textContent = "Preload failed · refresh to retry";
+      this.setStatus(`Load failed: ${error.message}`);
+      this.progressEl.textContent = "Load failed · refresh";
       this.startBtn.disabled = true;
     } finally {
       if (this.bootstrapController?.signal === signal) {
@@ -1820,16 +1942,16 @@ class EarTrainingApp {
     this.audio.stopBackgroundMode();
     this.clearSchedules();
     this.setDisplay("?", "question");
-    this.progressEl.textContent = this.samplesReady ? "Ready · tap Start to begin" : "Stopped";
+    this.progressEl.textContent = this.samplesReady ? "Ready" : "Stopped";
     this.setStatus("");
     this.setControlsDisabled(false);
   }
 
   formatLoadingStatus(done, total, url = "", { fromCache = false } = {}) {
     const fileName = url ? url.split("/").pop() : "";
-    const prefix = fromCache ? "Reading saved samples" : "Downloading samples";
+    const prefix = fromCache ? "Cache" : "Download";
     return fileName
-      ? `${prefix} ${done}/${total} · ${decodeURIComponent(fileName)}`
+      ? `${prefix} ${done}/${total}`
       : `${prefix} ${done}/${total}...`;
   }
 
@@ -1891,7 +2013,7 @@ class EarTrainingApp {
       this.scheduleAt(noteStart, () => {
         if (!this.running) return;
         this.setDisplay("?", "question");
-        this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 1`;
+        this.progressEl.textContent = `${index}/${numNotes} · beat 1`;
         this.keyboard.clearFeedback();
       });
       this.audio.scheduleNote(midi, noteStart, beatSec, this.audio.noteBeat1Gain);
@@ -1900,14 +2022,14 @@ class EarTrainingApp {
       this.scheduleAt(beat2, () => {
         if (!this.running) return;
         this.setDisplay("?", "question");
-        this.progressEl.textContent = `Note ${index} / ${numNotes} · Beat 2`;
+        this.progressEl.textContent = `${index}/${numNotes} · beat 2`;
       });
 
       const beat3 = noteStart + 2 * beatSec;
       this.scheduleAt(beat3, () => {
         if (!this.running) return;
         this.setDisplay(solfegeDisplay(midi), "answer", midi);
-        this.progressEl.textContent = `Note ${index} / ${numNotes} · Answer`;
+        this.progressEl.textContent = `${index}/${numNotes} · answer`;
         this.keyboard.clearFeedback();
         this.keyboard.highlight(midi, true);
       });
@@ -1920,7 +2042,7 @@ class EarTrainingApp {
     this.schedule(() => {
       if (!this.running) return;
       this.setDisplay("Done", "answer");
-      this.progressEl.textContent = `${numNotes} notes completed`;
+      this.progressEl.textContent = `${numNotes} done`;
       this.stop();
     }, totalMs);
   }
@@ -1939,14 +2061,14 @@ class EarTrainingApp {
 
       this.setDisplay("?", "question");
       this.keyboard.clearFeedback();
-      this.progressEl.textContent = `Note ${index} / ${numNotes} · Listen · Score ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · listen · ${correctCount}`;
 
       this.maybeClick(beat1);
       this.audio.scheduleNote(targetMidi, beat1, beatSec, this.audio.noteBeat1Gain);
       if (!(await this.waitUntilAudio(beat2))) break;
 
       this.setDisplay("Tap", "tap");
-      this.progressEl.textContent = `Note ${index} / ${numNotes} · Tap the key · Score ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
       this.maybeClick(beat2);
 
       const pressedMidi = await this.waitForKeyPress();
@@ -1959,11 +2081,11 @@ class EarTrainingApp {
       const answerAt = Math.max(beat2, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
         this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct", targetMidi);
-        this.progressEl.textContent = `Note ${index} / ${numNotes} · Correct · Score ${correctCount}/${index}`;
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
         this.setDisplay(`✗ ${solfegeDisplay(targetMidi)}`, "wrong", targetMidi);
         this.progressEl.textContent =
-          `Note ${index} / ${numNotes} · You: ${noteLabel(pressedMidi)} · Answer: ${solfegeDisplay(targetMidi)} · Score ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${noteLabel(pressedMidi)} → ${solfegeDisplay(targetMidi)} · ${correctCount}/${index}`;
       }
 
       this.maybeClick(answerAt);
@@ -1976,7 +2098,7 @@ class EarTrainingApp {
 
     const accuracy = numNotes ? Math.round((correctCount / numNotes) * 100) : 0;
     this.setDisplay("Done", "answer");
-    this.progressEl.textContent = `${correctCount} / ${numNotes} correct (${accuracy}%)`;
+    this.progressEl.textContent = `${correctCount}/${numNotes} (${accuracy}%)`;
     this.stop();
   }
 
