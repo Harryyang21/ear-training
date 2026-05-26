@@ -4,6 +4,12 @@ const RANGE_PRESETS = {
   advanced: { start: 48, end: 72, label: "Advanced C3-C5" },
 };
 
+const BASS_RANGE = { start: 28, end: 48, label: "Bass E1-C3" };
+
+const REFERENCE_A_SEC = 1.0;
+const REFERENCE_A_GAP_SEC = 0.1;
+const REFERENCE_A_GAIN = 0.42;
+
 const DIATONIC = new Set([0, 2, 4, 5, 7, 9, 11]);
 
 const SYLLABLE = {
@@ -28,7 +34,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530a";
+const APP_VERSION = "20260530b";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -163,7 +169,8 @@ const DEFAULT_NUM_NOTES = 300;
 
 const MODE_SUBTITLES = {
   passive: "Two beats · auto reveal",
-  interactive: "One beat · tap to answer",
+  interactive: "A440 · one beat · tap to answer",
+  bass: "Low bass · A440 · tap to answer",
 };
 
 const PRACTICE_TIME_STORAGE_KEY = "earTrainingPracticeMs";
@@ -325,7 +332,18 @@ function normalizeSampleRef(sampleRef) {
 }
 
 function instrumentRelativeSamplePath(instrumentId, sampleRef) {
-  return `samples/${instrumentId === "piano" ? "piano" : `instruments/${instrumentId}`}/${normalizeSampleRef(sampleRef)}`;
+  const root = instrumentId === "piano" ? "samples/piano" : `samples/instruments/${instrumentId}`;
+  const ref = String(sampleRef).replace(/\\/g, "/");
+  if (ref.includes("..")) {
+    const resolved = [];
+    for (const part of `${root}/${ref}`.split("/")) {
+      if (!part || part === ".") continue;
+      if (part === "..") resolved.pop();
+      else resolved.push(part);
+    }
+    return resolved.join("/");
+  }
+  return `${root}/${normalizeSampleRef(sampleRef)}`;
 }
 
 function assetUrl(relativePath) {
@@ -573,6 +591,12 @@ const INSTRUMENTS = {
     label: "Saxophone",
     sfzRel: "samples/instruments/saxophone/instrument.sfz",
   },
+  bass: {
+    label: "Bass",
+    sfzRel: "samples/instruments/bass/instrument.sfz",
+    gain: 1.15,
+    validateMidis: [36, 40, 45, 48],
+  },
 };
 
 class AudioEngine {
@@ -588,6 +612,7 @@ class AudioEngine {
     this.noteBeat1Gain = NOTE_BEAT1_GAIN;
     this.noteAnswerGain = NOTE_ANSWER_GAIN;
     this.clickBuffer = null;
+    this.referenceABuffer = null;
     this.activeVoices = [];
     this.scheduledSources = [];
     this.mediaStreamDest = null;
@@ -621,6 +646,7 @@ class AudioEngine {
 
     await this.setInstrument(this.instrumentId);
     this.clickBuffer = this.createMetronomeClickBuffer();
+    this.referenceABuffer = this.createReferenceABuffer();
   }
 
   async setInstrument(instrumentId) {
@@ -647,7 +673,8 @@ class AudioEngine {
 
     this.allInstrumentRegions = regions;
     this.instrumentRegions = regions;
-    for (const midi of [48, 55, 60, 67, 72]) {
+    const checkMidis = config.validateMidis ?? [48, 55, 60, 67, 72];
+    for (const midi of checkMidis) {
       if (!findSampleRegion(this.instrumentRegions, midi)) {
         throw new Error(`${config.label} is missing samples for ${noteLabel(midi)}`);
       }
@@ -781,6 +808,35 @@ class AudioEngine {
     }
 
     return buffer;
+  }
+
+  createReferenceABuffer() {
+    const sampleRate = this.ctx.sampleRate;
+    const length = Math.max(1, Math.round(REFERENCE_A_SEC * sampleRate));
+    const fadeSamples = Math.min(length, Math.max(1, Math.round(0.04 * sampleRate)));
+    const fadeStart = length - fadeSamples;
+    const buffer = this.ctx.createBuffer(1, length, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < length; i += 1) {
+      const t = i / sampleRate;
+      let env = 1;
+      if (i < fadeSamples) env = i / fadeSamples;
+      else if (i >= fadeStart) env = (length - i) / fadeSamples;
+      data[i] = Math.sin(2 * Math.PI * 440 * t) * env * REFERENCE_A_GAIN;
+    }
+
+    return buffer;
+  }
+
+  playReferenceA(when) {
+    if (!this.ctx || !this.referenceABuffer) return;
+    this.playBuffer(this.referenceABuffer, when, { gain: 1, fadeIn: 0.002 });
+  }
+
+  playReferenceANow() {
+    if (!this.ctx) return;
+    this.playReferenceA(this.ctx.currentTime);
   }
 
   instrumentSamplePath(midi) {
@@ -1585,8 +1641,10 @@ function instrumentLabelFromSampleUrl(url) {
 }
 
 function getBootstrapNotes() {
-  const preset = RANGE_PRESETS.advanced;
-  return diatonicNotes(preset.start, preset.end);
+  const advanced = diatonicNotes(RANGE_PRESETS.advanced.start, RANGE_PRESETS.advanced.end);
+  const bass = diatonicNotes(BASS_RANGE.start, BASS_RANGE.end);
+  const merged = new Set([...advanced, ...bass]);
+  return [...merged].sort((a, b) => a - b);
 }
 
 class EarTrainingApp {
@@ -1602,6 +1660,7 @@ class EarTrainingApp {
     this.metronomeScheduler = null;
     this.interactiveResolve = null;
     this.keyboard = null;
+    this.currentQuestion = null;
 
     this.modeEl = document.getElementById("mode");
     this.subtitleEl = document.getElementById("subtitle");
@@ -1617,18 +1676,21 @@ class EarTrainingApp {
     this.keyboardEl = document.getElementById("pianoKeyboard");
     this.startBtn = document.getElementById("startBtn");
     this.stopBtn = document.getElementById("stopBtn");
+    this.refABtn = document.getElementById("refABtn");
+    this.replayBtn = document.getElementById("replayBtn");
 
     this.startBtn.addEventListener("click", () => this.start());
     this.stopBtn.addEventListener("click", () => this.stop());
+    this.refABtn?.addEventListener("click", () => this.playReferenceA());
+    this.replayBtn?.addEventListener("click", () => this.replayCurrentQuestion());
     this.levelEl.addEventListener("change", () => {
       this.resetKeyboard();
     });
-    this.modeEl.addEventListener("change", () => this.updateModeHint());
+    this.modeEl.addEventListener("change", () => this.onModeChange());
     this.instrumentEl.addEventListener("change", () => this.onInstrumentChange());
 
-    this.resetKeyboard();
+    this.onModeChange();
     this.numNotesEl.value = String(DEFAULT_NUM_NOTES);
-    this.updateModeHint();
     this.setDisplay("?", "question");
     this.progressEl.textContent = "Loading samples...";
     this.setControlsDisabled(true);
@@ -1646,8 +1708,61 @@ class EarTrainingApp {
     this.subtitleEl.textContent = MODE_SUBTITLES[mode] || MODE_SUBTITLES.passive;
   }
 
+  onModeChange() {
+    const bass = this.isBassMode();
+    if (this.instrumentEl) {
+      this.instrumentEl.disabled = bass;
+      if (bass) this.instrumentEl.value = "bass";
+    }
+    if (this.levelEl) {
+      this.levelEl.disabled = bass;
+    }
+    this.updateModeHint();
+    this.resetKeyboard();
+  }
+
+  isBassMode() {
+    return this.modeEl.value === "bass";
+  }
+
   isInteractiveMode() {
-    return this.modeEl.value === "interactive";
+    return this.modeEl.value === "interactive" || this.isBassMode();
+  }
+
+  usesReferenceA() {
+    return this.modeEl.value === "interactive" || this.isBassMode();
+  }
+
+  getKeyboardRange() {
+    if (this.isBassMode()) return BASS_RANGE;
+    return this.getPreset();
+  }
+
+  getSessionNotes() {
+    if (this.isBassMode()) {
+      return diatonicNotes(BASS_RANGE.start, BASS_RANGE.end);
+    }
+    const preset = this.getPreset();
+    return diatonicNotes(preset.start, preset.end);
+  }
+
+  playReferenceA() {
+    if (!this.samplesReady) return;
+    void this.ensureAudioReadyForControls();
+    this.audio.playReferenceANow();
+  }
+
+  async replayCurrentQuestion() {
+    if (!this.running || !this.currentQuestion) return;
+    await this.ensureAudioReadyForControls();
+    const { midi, beatSec } = this.currentQuestion;
+    this.audio.scheduleNote(midi, this.audio.ctx.currentTime + 0.02, beatSec, this.audio.noteBeat1Gain);
+  }
+
+  async ensureAudioReadyForControls() {
+    if (!this.audio.ctx) await this.audio.init();
+    this.audio.resumeOnUserGesture();
+    await this.audio.ensurePlayback();
   }
 
   metronomeEnabled() {
@@ -1772,7 +1887,7 @@ class EarTrainingApp {
   }
 
   async onInstrumentChange() {
-    if (this.running || !this.samplesReady) return;
+    if (this.running || !this.samplesReady || this.isBassMode()) return;
     try {
       if (!this.audio.ctx) await this.audio.init();
       this.audio.cancelWarmPreload();
@@ -1786,8 +1901,8 @@ class EarTrainingApp {
 
   resetKeyboard() {
     this.keyboard?.destroy();
-    const preset = this.getPreset();
-    this.keyboard = new PianoKeyboard(this.keyboardEl, preset.start, preset.end);
+    const range = this.getKeyboardRange();
+    this.keyboard = new PianoKeyboard(this.keyboardEl, range.start, range.end);
     this.keyboard.setInteractive(false);
   }
 
@@ -1923,18 +2038,27 @@ class EarTrainingApp {
 
   setControlsDisabled(disabled) {
     const settingsLocked = disabled || !this.samplesReady;
+    const bass = this.isBassMode();
     this.startBtn.disabled = disabled || !this.samplesReady;
     this.stopBtn.disabled = !disabled;
     this.modeEl.disabled = settingsLocked;
     this.metronomeEl.disabled = settingsLocked;
-    this.instrumentEl.disabled = settingsLocked;
-    this.levelEl.disabled = settingsLocked;
+    this.instrumentEl.disabled = settingsLocked || bass;
+    this.levelEl.disabled = settingsLocked || bass;
     this.bpmEl.disabled = settingsLocked;
     this.numNotesEl.disabled = settingsLocked;
+    if (this.refABtn) this.refABtn.disabled = !this.samplesReady;
+    if (this.replayBtn) this.replayBtn.disabled = !this.running || !this.currentQuestion;
+  }
+
+  updateAuxControls() {
+    if (this.refABtn) this.refABtn.disabled = !this.samplesReady;
+    if (this.replayBtn) this.replayBtn.disabled = !this.running || !this.currentQuestion;
   }
 
   stop() {
     this.running = false;
+    this.currentQuestion = null;
     this.stopMetronomeScheduler();
     this.audio.cancelPendingLoads();
     this.audio.stopAllVoices(true);
@@ -1958,7 +2082,7 @@ class EarTrainingApp {
   async prepareSession(notes, beatSec) {
     if (!this.audio.ctx) await this.audio.init();
     await this.audio.ensurePlayback();
-    await this.audio.setInstrument(this.instrumentEl.value);
+    await this.audio.setInstrument(this.isBassMode() ? "bass" : this.instrumentEl.value);
 
     this.audio.cancelPendingLoads();
     this.audio.cancelWarmPreload();
@@ -2047,29 +2171,40 @@ class EarTrainingApp {
     }, totalMs);
   }
 
-  async startInteractiveSession({ numNotes, beatSec, notes }) {
+  async startInteractiveSession({ numNotes, beatSec, notes, withReferenceA = false }) {
     let correctCount = 0;
     await this.audio.ensurePlayback();
+    const refLead = withReferenceA ? REFERENCE_A_SEC + REFERENCE_A_GAP_SEC : 0;
 
     for (let i = 0; i < numNotes; i += 1) {
       if (!this.running) break;
 
       const targetMidi = randomChoice(notes);
       const index = i + 1;
-      const beat1 = this.audio.ctx.currentTime + 0.05;
-      const beat2 = beat1 + beatSec;
+      const base = this.audio.ctx.currentTime + 0.05;
+      const questionStart = base + refLead;
+      const questionEnd = questionStart + beatSec;
+
+      this.currentQuestion = { midi: targetMidi, beatSec };
+      this.updateAuxControls();
 
       this.setDisplay("?", "question");
       this.keyboard.clearFeedback();
-      this.progressEl.textContent = `${index}/${numNotes} · listen · ${correctCount}`;
 
-      this.maybeClick(beat1);
-      this.audio.scheduleNote(targetMidi, beat1, beatSec, this.audio.noteBeat1Gain);
-      if (!(await this.waitUntilAudio(beat2))) break;
+      if (withReferenceA) {
+        this.progressEl.textContent = `${index}/${numNotes} · A440 · ${correctCount}`;
+        this.audio.playReferenceA(base);
+        if (!(await this.waitUntilAudio(questionStart))) break;
+      }
+
+      this.progressEl.textContent = `${index}/${numNotes} · listen · ${correctCount}`;
+      this.maybeClick(questionStart);
+      this.audio.scheduleNote(targetMidi, questionStart, beatSec, this.audio.noteBeat1Gain);
+      if (!(await this.waitUntilAudio(questionEnd))) break;
 
       this.setDisplay("Tap", "tap");
       this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
-      this.maybeClick(beat2);
+      this.maybeClick(questionEnd);
 
       const pressedMidi = await this.waitForKeyPress();
       if (!this.running || pressedMidi === null) break;
@@ -2078,7 +2213,7 @@ class EarTrainingApp {
       if (isCorrect) correctCount += 1;
 
       this.keyboard.markAnswer(pressedMidi, targetMidi);
-      const answerAt = Math.max(beat2, this.audio.ctx.currentTime + 0.02);
+      const answerAt = Math.max(questionEnd, this.audio.ctx.currentTime + 0.02);
       if (isCorrect) {
         this.setDisplay(`✓ ${solfegeDisplay(targetMidi)}`, "correct", targetMidi);
         this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
@@ -2105,16 +2240,16 @@ class EarTrainingApp {
   async start() {
     if (this.running || !this.samplesReady) return;
 
-    const preset = this.getPreset();
     const bpm = Number(this.bpmEl.value) || 60;
     const numNotes = Number(this.numNotesEl.value) || DEFAULT_NUM_NOTES;
-    const notes = diatonicNotes(preset.start, preset.end);
+    const notes = this.getSessionNotes();
     if (!notes.length) {
       this.setStatus("No notes in selected range.");
       return;
     }
 
     this.running = true;
+    this.currentQuestion = null;
     this.audio.resumeOnUserGesture();
     if (!this.audio.ctx) await this.audio.init();
     this.audio.resumeOnUserGesture();
@@ -2130,7 +2265,12 @@ class EarTrainingApp {
       await this.prepareSession(notes, beatSec);
 
       if (this.isInteractiveMode()) {
-        await this.startInteractiveSession({ numNotes, beatSec, notes });
+        await this.startInteractiveSession({
+          numNotes,
+          beatSec,
+          notes,
+          withReferenceA: this.usesReferenceA(),
+        });
       } else {
         await this.startPassiveSession({ numNotes, beatSec, notes });
       }

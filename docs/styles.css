@@ -241,7 +241,7 @@ html, body {
   transform: scale(1.04);
 }
 
-/* Do Re Mi Fa So La Ti answer text → 红橙黄绿青蓝紫 */
+/* Answer syllable rainbow colors */
 .note-display.rainbow-pc-0 { color: #ff6b6b; }
 .note-display.rainbow-pc-2 { color: #ffa94d; }
 .note-display.rainbow-pc-4 { color: #ffd43b; }
