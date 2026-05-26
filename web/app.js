@@ -675,7 +675,6 @@ class AudioEngine {
 
     await this.setInstrument(this.instrumentId);
     this.clickBuffer = this.createMetronomeClickBuffer();
-    this.referenceABuffer = this.createReferenceABuffer();
   }
 
   async setInstrument(instrumentId) {
@@ -751,6 +750,7 @@ class AudioEngine {
   }
 
   haltAudibleOutput() {
+    this.stopReferenceA();
     this.stopAllVoices(true);
   }
 
@@ -787,6 +787,7 @@ class AudioEngine {
   }
 
   stopAllVoices(immediate = true) {
+    this.stopReferenceA();
     if (!this.ctx) {
       this.activeVoices = [];
       this.scheduledSources = [];
@@ -839,28 +840,50 @@ class AudioEngine {
     return buffer;
   }
 
-  createReferenceABuffer() {
-    const sampleRate = this.ctx.sampleRate;
-    const length = Math.max(1, Math.round(REFERENCE_A_SEC * sampleRate));
-    const fadeSamples = Math.min(length, Math.max(1, Math.round(0.04 * sampleRate)));
-    const fadeStart = length - fadeSamples;
-    const buffer = this.ctx.createBuffer(1, length, sampleRate);
-    const data = buffer.getChannelData(0);
-
-    for (let i = 0; i < length; i += 1) {
-      const t = i / sampleRate;
-      let env = 1;
-      if (i < fadeSamples) env = i / fadeSamples;
-      else if (i >= fadeStart) env = (length - i) / fadeSamples;
-      data[i] = Math.sin(2 * Math.PI * 440 * t) * env * REFERENCE_A_GAIN;
+  stopReferenceA() {
+    if (!this.referenceAVoice) return;
+    const { osc, gainNode } = this.referenceAVoice;
+    try {
+      osc.onended = null;
+      osc.stop();
+      osc.disconnect();
+      gainNode.disconnect();
+    } catch {
+      // Already stopped.
     }
-
-    return buffer;
+    this.referenceAVoice = null;
   }
 
   playReferenceA(when) {
-    if (!this.ctx || !this.referenceABuffer) return;
-    this.playBuffer(this.referenceABuffer, when, { gain: 1, fadeIn: 0.002 });
+    if (!this.ctx) return;
+
+    this.stopReferenceA();
+
+    const now = this.ctx.currentTime;
+    const startAt = when == null ? now : Math.max(when, now);
+    const endAt = startAt + REFERENCE_A_SEC;
+    const fadeSec = 0.04;
+
+    const osc = this.ctx.createOscillator();
+    const gainNode = this.ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 440;
+
+    gainNode.gain.setValueAtTime(0, startAt);
+    gainNode.gain.linearRampToValueAtTime(REFERENCE_A_GAIN, startAt + fadeSec);
+    gainNode.gain.setValueAtTime(REFERENCE_A_GAIN, Math.max(startAt + fadeSec, endAt - fadeSec));
+    gainNode.gain.linearRampToValueAtTime(0.0001, endAt);
+
+    osc.connect(gainNode).connect(this.master);
+    osc.start(startAt);
+    osc.stop(endAt);
+
+    this.referenceAVoice = { osc, gainNode };
+    osc.onended = () => {
+      if (this.referenceAVoice?.osc === osc) {
+        this.referenceAVoice = null;
+      }
+    };
   }
 
   playReferenceANow() {
