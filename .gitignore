@@ -1,0 +1,35 @@
+# Local-only docs (repo README.md is the short public version)
+README-LOCAL.md
+README-DEPLOY.md
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local-only tools
+tools/cloudflared.exe
+
+# Raw samples at repo root (docs/samples/ is published)
+/samples/
+
+# Local Python — not used by GitHub Pages
+ear_training.py
+tools/build_instruments.py
+tools/export_metronome_click.py
+tools/prepare_github_pages.py
+deploy_github_pages.bat
+tools/upload_cos.ps1
+tools/cos.env
+tools/cos.env.example
+
+# Local dev server scripts
+serve_lan.bat
+serve_lan.ps1
+serve_public.bat
+serve_public.ps1
+index.html
+
+# Generated / scratch
+ear_training.mp3
+.DS_Store
+Thumbs.db

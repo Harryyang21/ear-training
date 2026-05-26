@@ -1,0 +1,34 @@
+// Auto-generated for ear training web app
+
+<region>
+lokey=48 hikey=50 pitch_keycenter=48
+sample=samples/KSHarp_C3_mf.wav
+
+<region>
+lokey=50 hikey=54 pitch_keycenter=52
+sample=samples/KSHarp_E3_mf.wav
+
+<region>
+lokey=53 hikey=57 pitch_keycenter=55
+sample=samples/KSHarp_G3_mf.wav
+
+<region>
+lokey=57 hikey=61 pitch_keycenter=59
+sample=samples/KSHarp_B3_mf.wav
+
+<region>
+lokey=60 hikey=64 pitch_keycenter=62
+sample=samples/KSHarp_D4_mf.wav
+
+<region>
+lokey=63 hikey=67 pitch_keycenter=65
+sample=samples/KSHarp_F4_mf.wav
+
+<region>
+lokey=67 hikey=71 pitch_keycenter=69
+sample=samples/KSHarp_A4_mf.wav
+
+<region>
+lokey=70 hikey=72 pitch_keycenter=72
+sample=samples/KSHarp_C5_mf.wav
+

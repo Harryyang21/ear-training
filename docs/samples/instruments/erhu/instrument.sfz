@@ -1,0 +1,90 @@
+// Auto-generated for ear training web app
+
+<region>
+lokey=50 hikey=50 pitch_keycenter=50
+sample=samples/erhu_d5_sus_rr1.wav
+
+<region>
+lokey=51 hikey=51 pitch_keycenter=51
+sample=samples/erhu_eb5_sus_rr1.wav
+
+<region>
+lokey=52 hikey=52 pitch_keycenter=52
+sample=samples/erhu_e5_sus_rr1.wav
+
+<region>
+lokey=53 hikey=53 pitch_keycenter=53
+sample=samples/erhu_f5_sus_rr1.wav
+
+<region>
+lokey=54 hikey=54 pitch_keycenter=54
+sample=samples/erhu_gb5_sus_rr1.wav
+
+<region>
+lokey=55 hikey=55 pitch_keycenter=55
+sample=samples/erhu_g5_sus_rr1.wav
+
+<region>
+lokey=56 hikey=56 pitch_keycenter=56
+sample=samples/erhu_ab5_sus_rr1.wav
+
+<region>
+lokey=57 hikey=57 pitch_keycenter=57
+sample=samples/erhu_a5_sus_rr1.wav
+
+<region>
+lokey=58 hikey=58 pitch_keycenter=58
+sample=samples/erhu_bb5_sus_rr1.wav
+
+<region>
+lokey=59 hikey=59 pitch_keycenter=59
+sample=samples/erhu_b5_sus_rr1.wav
+
+<region>
+lokey=60 hikey=60 pitch_keycenter=60
+sample=samples/erhu_c6_sus_rr1.wav
+
+<region>
+lokey=61 hikey=61 pitch_keycenter=61
+sample=samples/erhu_db6_sus_rr1.wav
+
+<region>
+lokey=62 hikey=62 pitch_keycenter=62
+sample=samples/erhu_d6_sus_rr1.wav
+
+<region>
+lokey=63 hikey=63 pitch_keycenter=63
+sample=samples/erhu_eb6_sus_rr1.wav
+
+<region>
+lokey=64 hikey=64 pitch_keycenter=64
+sample=samples/erhu_e6_sus_rr1.wav
+
+<region>
+lokey=65 hikey=65 pitch_keycenter=65
+sample=samples/erhu_f6_sus_rr1.wav
+
+<region>
+lokey=66 hikey=66 pitch_keycenter=66
+sample=samples/erhu_gb6_sus_rr1.wav
+
+<region>
+lokey=67 hikey=67 pitch_keycenter=67
+sample=samples/erhu_g6_sus_rr1.wav
+
+<region>
+lokey=68 hikey=68 pitch_keycenter=68
+sample=samples/erhu_ab6_sus_rr1.wav
+
+<region>
+lokey=69 hikey=69 pitch_keycenter=69
+sample=samples/erhu_a6_sus_rr1.wav
+
+<region>
+lokey=48 hikey=49 pitch_keycenter=50
+sample=samples/erhu_d5_sus_rr1.wav
+
+<region>
+lokey=70 hikey=72 pitch_keycenter=69
+sample=samples/erhu_a6_sus_rr1.wav
+

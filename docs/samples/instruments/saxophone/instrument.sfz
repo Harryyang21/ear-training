@@ -1,0 +1,102 @@
+// Auto-generated for ear training web app
+
+<region>
+lokey=49 hikey=49 pitch_keycenter=49
+sample=samples/alt_p_01.wav
+
+<region>
+lokey=50 hikey=50 pitch_keycenter=50
+sample=samples/alt_p_02.wav
+
+<region>
+lokey=51 hikey=51 pitch_keycenter=51
+sample=samples/alt_p_03.wav
+
+<region>
+lokey=52 hikey=52 pitch_keycenter=52
+sample=samples/alt_p_04.wav
+
+<region>
+lokey=53 hikey=53 pitch_keycenter=53
+sample=samples/alt_p_05.wav
+
+<region>
+lokey=54 hikey=54 pitch_keycenter=54
+sample=samples/alt_p_06.wav
+
+<region>
+lokey=55 hikey=55 pitch_keycenter=55
+sample=samples/alt_p_07.wav
+
+<region>
+lokey=56 hikey=56 pitch_keycenter=56
+sample=samples/alt_p_08.wav
+
+<region>
+lokey=57 hikey=57 pitch_keycenter=57
+sample=samples/alt_p_09.wav
+
+<region>
+lokey=58 hikey=58 pitch_keycenter=58
+sample=samples/alt_p_10.wav
+
+<region>
+lokey=59 hikey=59 pitch_keycenter=59
+sample=samples/alt_p_11.wav
+
+<region>
+lokey=60 hikey=60 pitch_keycenter=60
+sample=samples/alt_p_12.wav
+
+<region>
+lokey=61 hikey=61 pitch_keycenter=61
+sample=samples/alt_p_13.wav
+
+<region>
+lokey=62 hikey=62 pitch_keycenter=62
+sample=samples/alt_p_14.wav
+
+<region>
+lokey=63 hikey=63 pitch_keycenter=63
+sample=samples/alt_p_15.wav
+
+<region>
+lokey=64 hikey=64 pitch_keycenter=64
+sample=samples/alt_p_16.wav
+
+<region>
+lokey=65 hikey=65 pitch_keycenter=65
+sample=samples/alt_p_17.wav
+
+<region>
+lokey=66 hikey=66 pitch_keycenter=66
+sample=samples/alt_p_18.wav
+
+<region>
+lokey=67 hikey=67 pitch_keycenter=67
+sample=samples/alt_p_19.wav
+
+<region>
+lokey=68 hikey=68 pitch_keycenter=68
+sample=samples/alt_p_20.wav
+
+<region>
+lokey=69 hikey=69 pitch_keycenter=69
+sample=samples/alt_p_21.wav
+
+<region>
+lokey=70 hikey=70 pitch_keycenter=70
+sample=samples/alt_p_22.wav
+
+<region>
+lokey=71 hikey=71 pitch_keycenter=71
+sample=samples/alt_p_23.wav
+
+<region>
+lokey=72 hikey=72 pitch_keycenter=72
+sample=samples/alt_p_24.wav
+
+<region>
+lokey=48 hikey=48 pitch_keycenter=49
+sample=samples/alt_p_01.wav
+

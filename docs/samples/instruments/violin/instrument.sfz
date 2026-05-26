@@ -1,0 +1,22 @@
+// Auto-generated for ear training web app
+
+<region>
+lokey=48 hikey=57 pitch_keycenter=55
+sample=samples/LLVln_ArcoVib_G3_p.wav
+
+<region>
+lokey=58 hikey=62 pitch_keycenter=60
+sample=samples/LLVln_ArcoVib_C4_p.wav
+
+<region>
+lokey=62 hikey=66 pitch_keycenter=64
+sample=samples/LLVln_ArcoVib_E4_p.wav
+
+<region>
+lokey=65 hikey=69 pitch_keycenter=67
+sample=samples/LLVln_ArcoVib_G4_p.wav
+
+<region>
+lokey=70 hikey=72 pitch_keycenter=72
+sample=samples/LLVln_ArcoVib_C5_p.wav
+
