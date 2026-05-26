@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260527a";
+const APP_VERSION = "20260527b";
 
 function isBlackKey(midi) {
   return BLACK_PC.has(midi % 12);
@@ -355,6 +355,8 @@ function parseSfz(text) {
       const value = part.slice(eq + 1);
       if (["lokey", "hikey", "pitch_keycenter", "key"].includes(key)) {
         currentRegion[key] = Number(value);
+      } else if (key === "tune") {
+        currentRegion.tune = Number(value);
       } else if (key === "sample") {
         currentRegion.sample = value;
       }
@@ -370,12 +372,24 @@ function parseSfz(text) {
   });
 }
 
+function regionCenter(region) {
+  return region.pitch_keycenter ?? region.key ?? region.lokey;
+}
+
 function findSampleRegion(regions, midi) {
-  return regions.find((region) => {
+  let best = null;
+  let bestDistance = Infinity;
+  for (const region of regions) {
     const lo = region.lokey ?? region.key;
     const hi = region.hikey ?? region.key;
-    return lo <= midi && midi <= hi;
-  });
+    if (lo === undefined || hi === undefined || midi < lo || midi > hi) continue;
+    const distance = Math.abs(midi - regionCenter(region));
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = region;
+    }
+  }
+  return best;
 }
 
 const NOTE_BEAT1_GAIN = 0.92;
@@ -592,8 +606,10 @@ class AudioEngine {
 
   instrumentPlaybackRate(midi) {
     const region = findSampleRegion(this.instrumentRegions, midi);
-    const center = region.pitch_keycenter ?? region.key ?? region.lokey;
-    return 2 ** ((midi - center) / 12);
+    const center = regionCenter(region);
+    const semitoneRate = 2 ** ((midi - center) / 12);
+    const tuneCents = region.tune ?? 0;
+    return semitoneRate * 2 ** (tuneCents / 1200);
   }
 
   solfegePath(midi) {
@@ -1361,6 +1377,7 @@ class EarTrainingApp {
     this.stopBtn = document.getElementById("stopBtn");
     this.audioSourceEl = document.getElementById("audioSource");
     this.audioSourceWrapEl = document.getElementById("audioSourceWrap");
+    this.modeSourceRowEl = document.getElementById("modeSourceRow");
 
     this.startBtn.addEventListener("click", () => this.start());
     this.stopBtn.addEventListener("click", () => this.stop());
@@ -1384,6 +1401,7 @@ class EarTrainingApp {
     if (!this.audioSourceEl) return;
     if (isCosHosted() || !hasCustomCdn()) {
       this.audioSourceWrapEl?.classList.add("hidden");
+      this.modeSourceRowEl?.classList.add("single");
       return;
     }
     try {
