@@ -28,7 +28,7 @@ const SYLLABLE_DISPLAY = {
 
 const JENNIFER_MIN_MIDI = 48;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260528e";
+const APP_VERSION = "20260528f";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -1482,6 +1482,7 @@ class EarTrainingApp {
     this.keyboard = null;
 
     this.modeEl = document.getElementById("mode");
+    this.modeTabsEl = document.querySelector(".mode-tabs");
     this.subtitleEl = document.getElementById("subtitle");
     this.metronomeEl = document.getElementById("metronome");
     this.instrumentEl = document.getElementById("instrument");
@@ -1501,12 +1502,24 @@ class EarTrainingApp {
     this.levelEl.addEventListener("change", () => {
       this.resetKeyboard();
     });
-    this.modeEl.addEventListener("change", () => this.updateModeHint());
+    this.modeEl.addEventListener("change", () => {
+      this.syncModeTabs();
+      this.updateModeHint();
+    });
+    this.modeTabsEl?.querySelectorAll(".mode-tab").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.disabled || this.modeEl.disabled) return;
+        this.modeEl.value = button.dataset.mode;
+        this.syncModeTabs();
+        this.updateModeHint();
+      });
+    });
     this.instrumentEl.addEventListener("change", () => this.onInstrumentChange());
 
     this.resetKeyboard();
     this.numNotesEl.value = String(DEFAULT_NUM_NOTES);
     this.updateModeHint();
+    this.syncModeTabs();
     this.setDisplay("?", "question");
     this.progressEl.textContent = "Loading all instruments...";
     this.setControlsDisabled(true);
@@ -1516,6 +1529,16 @@ class EarTrainingApp {
   updateModeHint() {
     const mode = this.modeEl.value;
     this.subtitleEl.textContent = MODE_SUBTITLES[mode] || MODE_SUBTITLES.passive;
+  }
+
+  syncModeTabs() {
+    if (!this.modeTabsEl) return;
+    const value = this.modeEl.value;
+    for (const button of this.modeTabsEl.querySelectorAll(".mode-tab")) {
+      const active = button.dataset.mode === value;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    }
   }
 
   isInteractiveMode() {
@@ -1783,6 +1806,9 @@ class EarTrainingApp {
     this.startBtn.disabled = disabled || !this.samplesReady;
     this.stopBtn.disabled = !disabled;
     this.modeEl.disabled = settingsLocked;
+    this.modeTabsEl?.querySelectorAll(".mode-tab").forEach((button) => {
+      button.disabled = settingsLocked;
+    });
     this.metronomeEl.disabled = settingsLocked;
     this.instrumentEl.disabled = settingsLocked;
     this.levelEl.disabled = settingsLocked;

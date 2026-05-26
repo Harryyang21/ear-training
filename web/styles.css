@@ -76,21 +76,94 @@ html, body {
 }
 
 .controls {
+  margin-bottom: 14px;
+}
+
+.controls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.control-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-bottom: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.field-mode {
+  gap: 8px;
+}
+
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #121a26;
+  border: 1px solid #243042;
+}
+
+.mode-tab {
+  padding: 9px 8px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mode-tab.active {
+  background: linear-gradient(180deg, #5eb0ff, #3d8fe6);
+  color: #041018;
+  box-shadow: 0 2px 8px rgba(61, 143, 230, 0.35);
+}
+
+.mode-tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.controls label.field {
+  display: flex;
 }
 
 .control-wide {
   grid-column: 1 / -1;
-}
-
-.control-row {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
 }
 
 .control-row label {
@@ -125,12 +198,12 @@ html, body {
 .controls select,
 .controls input:not([type="checkbox"]) {
   width: 100%;
-  padding: 10px;
+  padding: 9px 10px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--panel);
+  background: #121a26;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 0.92rem;
 }
 
 .controls label:has(select:disabled),
@@ -400,8 +473,18 @@ html, body {
 }
 
 @media (max-width: 520px) {
-  .controls {
-    grid-template-columns: 1fr;
+  .controls-panel {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .control-row {
+    gap: 8px;
+  }
+
+  .mode-tab {
+    font-size: 0.78rem;
+    padding: 8px 6px;
   }
 
   .play-area {

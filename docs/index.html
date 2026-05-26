@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 20260528e -->
-  <link rel="stylesheet" href="styles.css">
+  <!-- build: 20260528f -->
+  <link rel="stylesheet" href="styles.css?v=20260528f">
 </head>
 <body>
   <div class="app">
@@ -22,46 +22,56 @@
     </header>
 
     <section class="controls">
-      <div class="control-row">
-        <label>
-          Mode
-          <select id="mode">
+      <div class="controls-panel">
+        <div class="field field-mode">
+          <span class="field-label">Mode</span>
+          <div class="mode-tabs" role="tablist" aria-label="Mode">
+            <button type="button" class="mode-tab active" data-mode="passive" role="tab" aria-selected="true">
+              Passive · 被动
+            </button>
+            <button type="button" class="mode-tab" data-mode="interactive" role="tab" aria-selected="false">
+              Find Key · 找键
+            </button>
+          </div>
+          <select id="mode" class="sr-only" tabindex="-1" aria-hidden="true">
             <option value="passive">Passive Quick · 被动快速</option>
             <option value="interactive">Find the Key · 找键答题</option>
           </select>
-        </label>
-      </div>
-      <div class="control-row">
-        <label>
-          Instrument · 音色
-          <select id="instrument">
-            <option value="piano">Piano · 钢琴</option>
-            <option value="violin">Violin · 小提琴</option>
-            <option value="guitar">Guitar · 吉他</option>
-            <option value="guzheng">Guzheng · 古筝</option>
-            <option value="erhu">Erhu · 二胡</option>
-            <option value="harp">Harp · 竖琴</option>
-            <option value="saxophone">Saxophone · 萨克斯</option>
-          </select>
-        </label>
-        <label>
-          Range
-          <select id="level">
-            <option value="beginner">Beginner C4-C5</option>
-            <option value="regular">Regular G3-G4</option>
-            <option value="advanced" selected>Advanced C3-C5</option>
-          </select>
-        </label>
-      </div>
-      <div class="control-row">
-        <label>
-          BPM
-          <input id="bpm" type="number" min="40" max="120" value="60">
-        </label>
-        <label>
-          Notes
-          <input id="numNotes" type="number" min="5" max="500" value="300">
-        </label>
+        </div>
+
+        <div class="control-row">
+          <label class="field">
+            <span class="field-label">Instrument · 音色</span>
+            <select id="instrument">
+              <option value="piano">Piano · 钢琴</option>
+              <option value="violin">Violin · 小提琴</option>
+              <option value="guitar">Guitar · 吉他</option>
+              <option value="guzheng">Guzheng · 古筝</option>
+              <option value="erhu">Erhu · 二胡</option>
+              <option value="harp">Harp · 竖琴</option>
+              <option value="saxophone">Saxophone · 萨克斯</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Range</span>
+            <select id="level">
+              <option value="beginner">Beginner C4-C5</option>
+              <option value="regular">Regular G3-G4</option>
+              <option value="advanced" selected>Advanced C3-C5</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="control-row">
+          <label class="field">
+            <span class="field-label">BPM</span>
+            <input id="bpm" type="number" min="40" max="120" value="60">
+          </label>
+          <label class="field">
+            <span class="field-label">Notes</span>
+            <input id="numNotes" type="number" min="5" max="500" value="300">
+          </label>
+        </div>
       </div>
     </section>
 
@@ -96,7 +106,7 @@
     // Sample audio is served from Tencent COS.
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=20260528e"></script>
+  <script src="app.js?v=20260528f"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
