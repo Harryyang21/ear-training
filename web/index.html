@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 20260530l -->
-  <link rel="stylesheet" href="styles.css?v=20260530l">
+  <!-- build: 20260531a -->
+  <link rel="stylesheet" href="styles.css?v=20260531a">
 </head>
 <body>
   <div class="app">
@@ -20,6 +20,8 @@
       <h1>Ear Training</h1>
       <p id="subtitle" class="subtitle">Two beats · auto reveal</p>
       <p id="practiceTime" class="practice-time">Practiced 0:00</p>
+      <p id="dailyGoalText" class="daily-goal-text">Today 0 / 10 min · Streak 0</p>
+      <div id="practiceHeatmap" class="practice-heatmap" aria-label="Practice heatmap"></div>
     </header>
 
     <section class="controls">
@@ -31,7 +33,32 @@
               <option value="passive">Passive</option>
               <option value="interactive">Interactive</option>
               <option value="bass">Bass</option>
+              <option value="intervals">Intervals</option>
+              <option value="melody">Melody</option>
               <option value="chords">Chords</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="chordOptionsRow" class="control-row control-row-single hidden">
+          <label class="field">
+            <span class="field-label">Chord set</span>
+            <select id="chordSet">
+              <option value="c-major-triads">C major triads</option>
+              <option value="a-minor-triads">A minor triads</option>
+              <option value="c-major-7ths">C major 7ths</option>
+              <option value="progressions">Progressions</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="intervalOptionsRow" class="control-row control-row-single hidden">
+          <label class="field">
+            <span class="field-label">Interval style</span>
+            <select id="intervalStyle">
+              <option value="random">Harmonic / melodic</option>
+              <option value="harmonic">Harmonic</option>
+              <option value="melodic">Melodic</option>
             </select>
           </label>
         </div>
@@ -55,7 +82,19 @@
               <option value="beginner">Beginner C4-C5</option>
               <option value="regular">Regular G3-G4</option>
               <option value="advanced" selected>Advanced C3-C5</option>
+              <option value="custom">Custom</option>
             </select>
+          </label>
+        </div>
+
+        <div id="customRangeRow" class="control-row control-row-single hidden">
+          <label class="field field-range">
+            <span class="field-label">Custom range</span>
+            <div class="range-sliders">
+              <input id="rangeMin" type="range" min="36" max="84" value="48">
+              <input id="rangeMax" type="range" min="36" max="84" value="72">
+            </div>
+            <span id="rangeLabel" class="range-label">C3 – C5</span>
           </label>
         </div>
 
@@ -104,7 +143,7 @@
   <script>
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=20260530l"></script>
+  <script src="app.js?v=20260531a"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

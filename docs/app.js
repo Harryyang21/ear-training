@@ -16,18 +16,117 @@ const C_MAJOR_TRIADS = [
   { id: "Bdim", label: "B°", midis: [59, 62, 65] },
 ];
 
+const A_MINOR_TRIADS = [
+  { id: "Am", label: "Am", midis: [57, 60, 64] },
+  { id: "Bdim", label: "B°", midis: [59, 62, 65] },
+  { id: "C", label: "C", midis: [60, 64, 67] },
+  { id: "Dm", label: "Dm", midis: [62, 65, 69] },
+  { id: "Em", label: "Em", midis: [64, 67, 71] },
+  { id: "F", label: "F", midis: [65, 69, 72] },
+  { id: "G", label: "G", midis: [67, 71, 74] },
+];
+
+const C_MAJOR_SEVENTHS = [
+  { id: "Cmaj7", label: "CΔ", midis: [48, 52, 55, 59] },
+  { id: "Dm7", label: "Dm7", midis: [50, 53, 57, 60] },
+  { id: "Em7", label: "Em7", midis: [52, 55, 59, 62] },
+  { id: "Fmaj7", label: "FΔ", midis: [53, 57, 60, 64] },
+  { id: "G7", label: "G7", midis: [55, 59, 62, 66] },
+  { id: "Am7", label: "Am7", midis: [57, 60, 64, 67] },
+  { id: "Bm7b5", label: "Bm7♭5", midis: [59, 62, 65, 69] },
+];
+
+const C_MAJOR_PROGRESSIONS = [
+  { id: "I-IV-V-I", label: "I–IV–V–I", chordIds: ["C", "F", "G", "C"] },
+  { id: "I-V-vi-IV", label: "I–V–vi–IV", chordIds: ["C", "G", "Am", "F"] },
+  { id: "ii-V-I", label: "ii–V–I", chordIds: ["Dm", "G", "C"] },
+  { id: "I-vi-IV-V", label: "I–vi–IV–V", chordIds: ["C", "Am", "F", "G"] },
+];
+
+const CHORD_SETS = {
+  "c-major-triads": { label: "C major triads", type: "chord", chords: C_MAJOR_TRIADS },
+  "a-minor-triads": { label: "A minor triads", type: "chord", chords: A_MINOR_TRIADS },
+  "c-major-7ths": { label: "C major 7ths", type: "chord", chords: C_MAJOR_SEVENTHS },
+  progressions: { label: "Progressions", type: "progression", chords: C_MAJOR_TRIADS, progressions: C_MAJOR_PROGRESSIONS },
+};
+
+const INTERVAL_DEFS = [
+  { id: "m2", label: "m2", semitones: 1 },
+  { id: "M2", label: "M2", semitones: 2 },
+  { id: "m3", label: "m3", semitones: 3 },
+  { id: "M3", label: "M3", semitones: 4 },
+  { id: "P4", label: "P4", semitones: 5 },
+  { id: "TT", label: "TT", semitones: 6 },
+  { id: "P5", label: "P5", semitones: 7 },
+  { id: "m6", label: "m6", semitones: 8 },
+  { id: "M6", label: "M6", semitones: 9 },
+  { id: "m7", label: "m7", semitones: 10 },
+  { id: "M7", label: "M7", semitones: 11 },
+  { id: "P8", label: "P8", semitones: 12 },
+];
+
+const MELODY_MIN_LEN = 3;
+const MELODY_MAX_LEN = 5;
+
 const CHORD_NOTE_GAIN = 0.58;
 
-function getChordPreloadMidis() {
+function chordSetMidis(setKey) {
+  const set = CHORD_SETS[setKey];
+  if (!set) return [];
   const midis = new Set();
-  for (const triad of C_MAJOR_TRIADS) {
-    for (const midi of triad.midis) midis.add(midi);
+  for (const chord of set.chords) {
+    for (const midi of chord.midis) midis.add(midi);
   }
   return [...midis].sort((a, b) => a - b);
 }
 
-function getTriadById(id) {
-  return C_MAJOR_TRIADS.find((triad) => triad.id === id) ?? null;
+function getChordPreloadMidis() {
+  const midis = new Set();
+  for (const key of Object.keys(CHORD_SETS)) {
+    for (const midi of chordSetMidis(key)) midis.add(midi);
+  }
+  return [...midis].sort((a, b) => a - b);
+}
+
+function getChordSetItems(setKey) {
+  const set = CHORD_SETS[setKey];
+  if (!set) return { type: "chord", items: C_MAJOR_TRIADS, chordMap: buildChordMap(C_MAJOR_TRIADS) };
+  if (set.type === "progression") {
+    return { type: "progression", items: set.progressions, chordMap: buildChordMap(set.chords) };
+  }
+  return { type: "chord", items: set.chords, chordMap: buildChordMap(set.chords) };
+}
+
+function buildChordMap(chords) {
+  const map = new Map();
+  for (const chord of chords) map.set(chord.id, chord);
+  return map;
+}
+
+function getItemById(items, id) {
+  return items.find((item) => item.id === id) ?? null;
+}
+
+function chromaticNotes(start, end) {
+  const notes = [];
+  for (let midi = start; midi <= end; midi += 1) notes.push(midi);
+  return notes;
+}
+
+function validIntervalRoots(rangeStart, rangeEnd, semitones) {
+  const roots = [];
+  for (let root = rangeStart; root <= rangeEnd - semitones; root += 1) {
+    roots.push(root);
+  }
+  return roots;
+}
+
+function getIntervalById(id) {
+  return INTERVAL_DEFS.find((item) => item.id === id) ?? null;
+}
+
+function questionEndForInterval(beatSec, style) {
+  return style === "melodic" ? beatSec * 2 : beatSec;
 }
 
 const REFERENCE_A_SEC = 1.0;
@@ -60,7 +159,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530l";
+const APP_VERSION = "20260531a";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -236,7 +335,9 @@ const MODE_SUBTITLES = {
   passive: "Two beats · auto reveal",
   interactive: "A440 · one beat · tap to answer",
   bass: "Low bass · A440 · tap to answer",
-  chords: "C major triads · tap to answer",
+  chords: "Chords · tap to answer",
+  intervals: "Intervals · tap to answer",
+  melody: "Melody · replay on keyboard",
 };
 
 const PRACTICE_TIME_STORAGE_KEY = "earTrainingPracticeMs";
@@ -244,12 +345,18 @@ const ADAPTIVE_STATS_STORAGE_KEY = "earTrainingAdaptiveStats";
 
 const ADAPTIVE_BASE_WEIGHT = 1;
 const ADAPTIVE_MIN_WEIGHT = 1;
-const ADAPTIVE_MAX_WEIGHT = 8;
-const ADAPTIVE_WRONG_WEIGHT_ADD = 2;
-const ADAPTIVE_BOOST_QUESTIONS = 10;
-const ADAPTIVE_BOOST_MULTIPLIER = 4;
+const ADAPTIVE_MAX_WEIGHT = 3;
+const ADAPTIVE_WRONG_WEIGHT_ADD = 0.35;
+const ADAPTIVE_BOOST_QUESTIONS = 5;
+const ADAPTIVE_BOOST_MULTIPLIER = 1.45;
 const ADAPTIVE_STREAK_TO_REDUCE = 3;
-const ADAPTIVE_CORRECT_WEIGHT_REDUCE = 1;
+const ADAPTIVE_CORRECT_WEIGHT_REDUCE = 0.25;
+const ADAPTIVE_RANDOM_MIX = 0.62;
+
+const DAILY_GOAL_MS = 10 * 60 * 1000;
+const DAILY_LOG_STORAGE_KEY = "earTrainingDailyLog";
+const CUSTOM_RANGE_STORAGE_KEY = "earTrainingCustomRange";
+const HEATMAP_WEEKS = 12;
 
 function answerRainbowClass(midi) {
   const pc = midi % 12;
@@ -347,8 +454,10 @@ class PracticeTimeTracker {
 
   flushSegment() {
     if (this.segmentStart == null) return;
-    this.totalMs += performance.now() - this.segmentStart;
+    const elapsed = performance.now() - this.segmentStart;
+    this.totalMs += elapsed;
     this.segmentStart = null;
+    this.onSegmentFlush?.(elapsed);
     this.persist();
   }
 
@@ -372,6 +481,83 @@ class PracticeTimeTracker {
       this.persist();
     }
     this.onUpdate?.();
+  }
+}
+
+function localDateKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+class DailyPracticeLog {
+  constructor(onUpdate) {
+    this.onUpdate = onUpdate;
+    this.days = this.load();
+  }
+
+  load() {
+    try {
+      const raw = localStorage.getItem(DAILY_LOG_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  persist() {
+    try {
+      localStorage.setItem(DAILY_LOG_STORAGE_KEY, JSON.stringify(this.days));
+    } catch {
+      // Ignore private mode storage errors.
+    }
+  }
+
+  addMs(ms) {
+    if (ms <= 0) return;
+    const key = localDateKey();
+    this.days[key] = Math.max(0, (this.days[key] || 0) + ms);
+    this.persist();
+    this.onUpdate?.();
+  }
+
+  getDayMs(key = localDateKey()) {
+    return Math.max(0, this.days[key] || 0);
+  }
+
+  getTodayMs() {
+    return this.getDayMs(localDateKey());
+  }
+
+  getStreak(goalMs = DAILY_GOAL_MS) {
+    let streak = 0;
+    const cursor = new Date();
+    while (true) {
+      const key = localDateKey(cursor);
+      if ((this.days[key] || 0) >= goalMs) {
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  heatmapCells(weeks = HEATMAP_WEEKS) {
+    const cells = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    start.setDate(start.getDate() - weeks * 7 + 1);
+    for (let i = 0; i < weeks * 7; i += 1) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      const key = localDateKey(day);
+      cells.push({ key, ms: this.getDayMs(key) });
+    }
+    return cells;
   }
 }
 
@@ -448,6 +634,9 @@ class AdaptiveLearning {
   pickNote(candidates) {
     if (!candidates.length) return null;
     this.tickQuestion();
+    if (Math.random() < ADAPTIVE_RANDOM_MIX) {
+      return randomChoice(candidates);
+    }
     const entries = candidates.map((midi) => ({
       midi,
       weight: this.weightFor(midi),
@@ -1593,6 +1782,31 @@ class AudioEngine {
     }
   }
 
+  scheduleProgression(chordMap, chordIds, when, beatSec, gain = 1) {
+    for (let i = 0; i < chordIds.length; i += 1) {
+      const chord = chordMap.get(chordIds[i]);
+      if (!chord) continue;
+      const at = when + i * beatSec;
+      this.scheduleChord(chord.midis, at, beatSec, gain);
+    }
+  }
+
+  scheduleInterval(lowMidi, highMidi, when, beatSec, style, gain = 1) {
+    if (style === "harmonic") {
+      this.scheduleNote(lowMidi, when, beatSec, gain);
+      this.scheduleNote(highMidi, when, beatSec, gain);
+      return;
+    }
+    this.scheduleNote(lowMidi, when, beatSec, gain);
+    this.scheduleNote(highMidi, when + beatSec, beatSec, gain);
+  }
+
+  scheduleMelody(midis, when, beatSec, gain = 1) {
+    for (let i = 0; i < midis.length; i += 1) {
+      this.scheduleNote(midis[i], when + i * beatSec, beatSec, gain);
+    }
+  }
+
   chordNow(midis, durationSec, gain = 1) {
     if (!this.ctx) return;
     this.scheduleChord(midis, this.ctx.currentTime, durationSec, gain);
@@ -1932,9 +2146,9 @@ class PianoKeyboard {
 }
 
 class ChordPad {
-  constructor(root, triads) {
+  constructor(root, items) {
     this.root = root;
-    this.triads = triads;
+    this.items = items;
     this.buttonElements = new Map();
     this.interactive = false;
     this.onPress = null;
@@ -1949,17 +2163,17 @@ class ChordPad {
   build() {
     this.root.innerHTML = "";
     this.root.className = "chord-pad";
-    for (const triad of this.triads) {
+    for (const item of this.items) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "chord-btn";
-      button.textContent = triad.label;
-      button.dataset.chordId = triad.id;
+      button.textContent = item.label;
+      button.dataset.chordId = item.id;
       button.addEventListener("click", () => {
-        if (this.interactive && this.onPress) this.onPress(triad.id);
+        if (this.interactive && this.onPress) this.onPress(item.id);
       });
       this.root.appendChild(button);
-      this.buttonElements.set(triad.id, button);
+      this.buttonElements.set(item.id, button);
     }
   }
 
@@ -2012,7 +2226,14 @@ function getBootstrapNotes() {
 class EarTrainingApp {
   constructor() {
     this.practiceTimeEl = document.getElementById("practiceTime");
-    this.practiceTracker = new PracticeTimeTracker(() => this.updatePracticeTimeDisplay());
+    this.dailyGoalTextEl = document.getElementById("dailyGoalText");
+    this.practiceHeatmapEl = document.getElementById("practiceHeatmap");
+    this.dailyLog = new DailyPracticeLog(() => this.updateDailyGoalDisplay());
+    this.practiceTracker = new PracticeTimeTracker(() => {
+      this.updatePracticeTimeDisplay();
+      this.updateDailyGoalDisplay();
+    });
+    this.practiceTracker.onSegmentFlush = (ms) => this.dailyLog.addMs(ms);
     this.audio = new AudioEngine();
     this.audio.practiceTracker = this.practiceTracker;
     this.timeouts = [];
@@ -2023,12 +2244,22 @@ class EarTrainingApp {
     this.interactiveResolve = null;
     this.keyboard = null;
     this.currentQuestion = null;
+    this.chordItems = C_MAJOR_TRIADS;
+    this.chordMap = buildChordMap(C_MAJOR_TRIADS);
 
     this.modeEl = document.getElementById("mode");
     this.subtitleEl = document.getElementById("subtitle");
     this.metronomeEl = document.getElementById("metronome");
     this.instrumentEl = document.getElementById("instrument");
     this.levelEl = document.getElementById("level");
+    this.chordSetEl = document.getElementById("chordSet");
+    this.intervalStyleEl = document.getElementById("intervalStyle");
+    this.chordOptionsRow = document.getElementById("chordOptionsRow");
+    this.intervalOptionsRow = document.getElementById("intervalOptionsRow");
+    this.customRangeRow = document.getElementById("customRangeRow");
+    this.rangeMinEl = document.getElementById("rangeMin");
+    this.rangeMaxEl = document.getElementById("rangeMax");
+    this.rangeLabelEl = document.getElementById("rangeLabel");
     this.bpmEl = document.getElementById("bpm");
     this.numNotesEl = document.getElementById("numNotes");
     this.noteDisplayEl = document.getElementById("noteDisplay");
@@ -2045,19 +2276,124 @@ class EarTrainingApp {
     this.stopBtn.addEventListener("click", () => this.stop());
     this.refABtn?.addEventListener("click", () => this.playReferenceA());
     this.replayBtn?.addEventListener("click", () => this.replayCurrentQuestion());
-    this.levelEl.addEventListener("change", () => {
-      this.resetKeyboard();
-    });
+    this.levelEl.addEventListener("change", () => this.onLevelChange());
     this.modeEl.addEventListener("change", () => this.onModeChange());
+    this.chordSetEl?.addEventListener("change", () => this.onChordSetChange());
     this.instrumentEl.addEventListener("change", () => this.onInstrumentChange());
+    this.rangeMinEl?.addEventListener("input", () => this.onCustomRangeChange());
+    this.rangeMaxEl?.addEventListener("input", () => this.onCustomRangeChange());
 
+    this.loadCustomRange();
     this.onModeChange();
     this.numNotesEl.value = String(DEFAULT_NUM_NOTES);
     this.setDisplay("?", "question");
     this.progressEl.textContent = "Loading samples...";
     this.setControlsDisabled(true);
     this.updatePracticeTimeDisplay();
+    this.updateDailyGoalDisplay();
     void this.bootstrapSamples();
+  }
+
+  updateDailyGoalDisplay() {
+    const todayMs = this.dailyLog.getTodayMs();
+    const streak = this.dailyLog.getStreak();
+    const todayMin = Math.floor(todayMs / 60000);
+    const goalMin = Math.floor(DAILY_GOAL_MS / 60000);
+    if (this.dailyGoalTextEl) {
+      this.dailyGoalTextEl.textContent = `Today ${todayMin} / ${goalMin} min · Streak ${streak}`;
+    }
+    if (!this.practiceHeatmapEl) return;
+    this.practiceHeatmapEl.innerHTML = "";
+    for (const cell of this.dailyLog.heatmapCells()) {
+      const el = document.createElement("span");
+      el.className = "heatmap-cell";
+      el.title = `${cell.key}: ${Math.round(cell.ms / 60000)} min`;
+      const ratio = Math.min(1, cell.ms / DAILY_GOAL_MS);
+      if (ratio >= 1) el.classList.add("level-4");
+      else if (ratio >= 0.75) el.classList.add("level-3");
+      else if (ratio >= 0.4) el.classList.add("level-2");
+      else if (ratio > 0) el.classList.add("level-1");
+      this.practiceHeatmapEl.appendChild(el);
+    }
+  }
+
+  loadCustomRange() {
+    try {
+      const raw = localStorage.getItem(CUSTOM_RANGE_STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (this.rangeMinEl && data.min != null) this.rangeMinEl.value = String(data.min);
+      if (this.rangeMaxEl && data.max != null) this.rangeMaxEl.value = String(data.max);
+    } catch {
+      // Ignore invalid stored range.
+    }
+    this.updateCustomRangeLabel();
+  }
+
+  saveCustomRange() {
+    if (!this.rangeMinEl || !this.rangeMaxEl) return;
+    try {
+      localStorage.setItem(
+        CUSTOM_RANGE_STORAGE_KEY,
+        JSON.stringify({ min: Number(this.rangeMinEl.value), max: Number(this.rangeMaxEl.value) })
+      );
+    } catch {
+      // Ignore private mode storage errors.
+    }
+  }
+
+  onCustomRangeChange() {
+    if (!this.rangeMinEl || !this.rangeMaxEl) return;
+    let min = Number(this.rangeMinEl.value);
+    let max = Number(this.rangeMaxEl.value);
+    if (min > max) {
+      [min, max] = [max, min];
+      this.rangeMinEl.value = String(min);
+      this.rangeMaxEl.value = String(max);
+    }
+    this.saveCustomRange();
+    this.updateCustomRangeLabel();
+    this.resetKeyboard();
+  }
+
+  updateCustomRangeLabel() {
+    if (!this.rangeMinEl || !this.rangeMaxEl || !this.rangeLabelEl) return;
+    const min = Number(this.rangeMinEl.value);
+    const max = Number(this.rangeMaxEl.value);
+    this.rangeLabelEl.textContent = `${noteLabel(min)} – ${noteLabel(max)}`;
+  }
+
+  onLevelChange() {
+    const custom = this.levelEl.value === "custom";
+    this.customRangeRow?.classList.toggle("hidden", !custom);
+    this.showModeOptions();
+    this.updateCustomRangeLabel();
+    this.resetKeyboard();
+  }
+
+  onChordSetChange() {
+    const set = getChordSetItems(this.chordSetEl?.value || "c-major-triads");
+    this.chordItems = set.items;
+    this.chordMap = set.chordMap;
+    if (this.isChordMode()) this.resetKeyboard();
+  }
+
+  usesCustomRange() {
+    return (
+      !this.isBassMode() &&
+      !this.isChordMode() &&
+      this.levelEl.value === "custom"
+    );
+  }
+
+  showModeOptions() {
+    const mode = this.modeEl.value;
+    this.chordOptionsRow?.classList.toggle("hidden", mode !== "chords");
+    this.intervalOptionsRow?.classList.toggle("hidden", mode !== "intervals");
+    const showCustom =
+      (mode === "passive" || mode === "interactive" || mode === "intervals" || mode === "melody") &&
+      this.levelEl.value === "custom";
+    this.customRangeRow?.classList.toggle("hidden", !showCustom);
   }
 
   updatePracticeTimeDisplay() {
@@ -2073,14 +2409,19 @@ class EarTrainingApp {
   onModeChange() {
     const bass = this.isBassMode();
     const chords = this.isChordMode();
+    const intervals = this.isIntervalMode();
+    const melody = this.isMelodyMode();
+    const fixedInstrument = bass || chords;
     if (this.instrumentEl) {
-      this.instrumentEl.disabled = bass || chords;
+      this.instrumentEl.disabled = fixedInstrument;
       if (bass) this.instrumentEl.value = "bass";
       if (chords) this.instrumentEl.value = "piano";
     }
     if (this.levelEl) {
       this.levelEl.disabled = bass || chords;
     }
+    if (chords) this.onChordSetChange();
+    this.showModeOptions();
     this.updateModeHint();
     this.resetKeyboard();
   }
@@ -2093,8 +2434,22 @@ class EarTrainingApp {
     return this.modeEl.value === "chords";
   }
 
+  isIntervalMode() {
+    return this.modeEl.value === "intervals";
+  }
+
+  isMelodyMode() {
+    return this.modeEl.value === "melody";
+  }
+
   isInteractiveMode() {
-    return this.modeEl.value === "interactive" || this.isBassMode() || this.isChordMode();
+    return (
+      this.modeEl.value === "interactive" ||
+      this.isBassMode() ||
+      this.isChordMode() ||
+      this.isIntervalMode() ||
+      this.isMelodyMode()
+    );
   }
 
   usesReferenceA() {
@@ -2102,7 +2457,7 @@ class EarTrainingApp {
   }
 
   usesSolfege() {
-    return !this.isBassMode() && !this.isChordMode();
+    return this.modeEl.value === "passive" || this.modeEl.value === "interactive";
   }
 
   answerDisplay(midi) {
@@ -2115,6 +2470,22 @@ class EarTrainingApp {
     return `${this.modeEl.value}:${min}-${max}`;
   }
 
+  getPreset() {
+    if (this.levelEl.value === "custom") {
+      const min = Number(this.rangeMinEl?.value) || 48;
+      const max = Number(this.rangeMaxEl?.value) || 72;
+      const start = Math.min(min, max);
+      const end = Math.max(min, max);
+      return { start, end, label: `${noteLabel(start)}-${noteLabel(end)}` };
+    }
+    return RANGE_PRESETS[this.levelEl.value] || RANGE_PRESETS.advanced;
+  }
+
+  getRangeBounds() {
+    const preset = this.getPreset();
+    return { start: preset.start, end: preset.end };
+  }
+
   getKeyboardRange() {
     if (this.isBassMode()) return BASS_RANGE;
     return this.getPreset();
@@ -2122,10 +2493,14 @@ class EarTrainingApp {
 
   getSessionNotes() {
     if (this.isChordMode()) {
-      return getChordPreloadMidis();
+      return chordSetMidis(this.chordSetEl?.value || "c-major-triads");
     }
     if (this.isBassMode()) {
       return diatonicNotes(BASS_RANGE.start, BASS_RANGE.end);
+    }
+    if (this.isIntervalMode()) {
+      const { start, end } = this.getRangeBounds();
+      return chromaticNotes(start, end);
     }
     const preset = this.getPreset();
     return diatonicNotes(preset.start, preset.end);
@@ -2135,6 +2510,19 @@ class EarTrainingApp {
     if (this.isBassMode()) return "bass";
     if (this.isChordMode()) return "piano";
     return this.instrumentEl.value;
+  }
+
+  getIntervalStyle() {
+    const style = this.intervalStyleEl?.value || "random";
+    if (style === "random") return Math.random() < 0.5 ? "harmonic" : "melodic";
+    return style;
+  }
+
+  getChoicePadItems() {
+    if (this.isIntervalMode()) {
+      return INTERVAL_DEFS.map((item) => ({ id: item.id, label: item.label }));
+    }
+    return this.chordItems.map((item) => ({ id: item.id, label: item.label }));
   }
 
   async playReferenceA() {
@@ -2148,6 +2536,17 @@ class EarTrainingApp {
     await this.ensureAudioReadyForControls();
     const { beatSec } = this.currentQuestion;
     const when = this.audio.ctx.currentTime + 0.02;
+
+    if (this.currentQuestion.progression) {
+      this.audio.scheduleProgression(
+        this.currentQuestion.chordMap,
+        this.currentQuestion.progression.chordIds,
+        when,
+        beatSec,
+        this.audio.noteBeat1Gain
+      );
+      return;
+    }
     if (this.currentQuestion.chord) {
       this.audio.scheduleChord(
         this.currentQuestion.chord.midis,
@@ -2155,6 +2554,15 @@ class EarTrainingApp {
         beatSec,
         this.audio.noteBeat1Gain
       );
+      return;
+    }
+    if (this.currentQuestion.interval) {
+      const { lowMidi, highMidi, style } = this.currentQuestion.interval;
+      this.audio.scheduleInterval(lowMidi, highMidi, when, beatSec, style, this.audio.noteBeat1Gain);
+      return;
+    }
+    if (this.currentQuestion.melody) {
+      this.audio.scheduleMelody(this.currentQuestion.melody, when, beatSec, this.audio.noteBeat1Gain);
       return;
     }
     const { midi } = this.currentQuestion;
@@ -2279,17 +2687,8 @@ class EarTrainingApp {
     }
   }
 
-  getPreset() {
-    return RANGE_PRESETS[this.levelEl.value] || RANGE_PRESETS.advanced;
-  }
-
-  getCurrentRangeNotes() {
-    const preset = this.getPreset();
-    return diatonicNotes(preset.start, preset.end);
-  }
-
   async onInstrumentChange() {
-    if (this.running || !this.samplesReady || this.isBassMode()) return;
+    if (this.running || !this.samplesReady || this.isBassMode() || this.isChordMode()) return;
     try {
       if (!this.audio.ctx) await this.audio.init();
       this.audio.cancelWarmPreload();
@@ -2303,8 +2702,10 @@ class EarTrainingApp {
 
   resetKeyboard() {
     this.keyboard?.destroy();
-    if (this.isChordMode()) {
-      this.keyboard = new ChordPad(this.keyboardEl, C_MAJOR_TRIADS);
+    if (this.isChordMode() || this.isIntervalMode()) {
+      const items = this.getChoicePadItems().map((item) => ({ id: item.id, label: item.label }));
+      this.keyboard = new ChordPad(this.keyboardEl, items);
+      if (this.isIntervalMode()) this.keyboardEl.classList.add("interval-pad");
     } else {
       this.keyboardEl.className = "piano-keyboard";
       const range = this.getKeyboardRange();
@@ -2440,12 +2841,30 @@ class EarTrainingApp {
   waitForKeyPress() {
     return new Promise((resolve) => {
       this.interactiveResolve = resolve;
-      this.keyboard.setInteractive(true, (midi) => {
+      this.keyboard.setInteractive(true, (value) => {
         if (!this.running || !this.interactiveResolve) return;
         this.keyboard.setInteractive(false);
         const done = this.interactiveResolve;
         this.interactiveResolve = null;
-        done(midi);
+        done(value);
+      });
+    });
+  }
+
+  waitForMelodySequence(length) {
+    return new Promise((resolve) => {
+      const sequence = [];
+      this.interactiveResolve = () => resolve(null);
+      this.keyboard.setInteractive(true, (midi) => {
+        if (!this.running) return;
+        sequence.push(midi);
+        this.keyboard.highlight(midi, true);
+        window.setTimeout(() => this.keyboard.highlight(midi, false), 180);
+        if (sequence.length >= length) {
+          this.keyboard.setInteractive(false);
+          this.interactiveResolve = null;
+          resolve(sequence);
+        }
       });
     });
   }
@@ -2454,12 +2873,13 @@ class EarTrainingApp {
     const settingsLocked = disabled || !this.samplesReady;
     const bass = this.isBassMode();
     const chords = this.isChordMode();
+    const fixedRange = bass || chords;
     this.startBtn.disabled = disabled || !this.samplesReady;
     this.stopBtn.disabled = !disabled;
     this.modeEl.disabled = settingsLocked;
     this.metronomeEl.disabled = settingsLocked;
     this.instrumentEl.disabled = settingsLocked || bass || chords;
-    this.levelEl.disabled = settingsLocked || bass || chords;
+    this.levelEl.disabled = settingsLocked || fixedRange;
     this.bpmEl.disabled = settingsLocked;
     this.numNotesEl.disabled = settingsLocked;
     if (this.refABtn) this.refABtn.disabled = !this.samplesReady;
@@ -2666,23 +3086,31 @@ class EarTrainingApp {
 
   async startChordSession({ numNotes, beatSec }) {
     let correctCount = 0;
-    const chordIds = C_MAJOR_TRIADS.map((triad) => triad.id);
-    const adaptive = new AdaptiveLearning("chords:c-major");
+    const setKey = this.chordSetEl?.value || "c-major-triads";
+    const { type, items, chordMap } = getChordSetItems(setKey);
+    const choiceIds = items.map((item) => item.id);
+    const adaptive = new AdaptiveLearning(`chords:${setKey}`);
     await this.audio.ensurePlayback();
 
     for (let i = 0; i < numNotes; i += 1) {
       if (!this.running) break;
 
-      const targetId = adaptive.pickNote(chordIds);
-      const targetChord = getTriadById(targetId);
-      if (!targetChord) break;
+      const targetId = adaptive.pickNote(choiceIds);
+      const targetItem = getItemById(items, targetId);
+      if (!targetItem) break;
 
       const index = i + 1;
       const base = this.audio.ctx.currentTime + 0.05;
       const questionStart = base;
-      const questionEnd = questionStart + beatSec;
+      const listenEnd =
+        type === "progression"
+          ? questionStart + targetItem.chordIds.length * beatSec
+          : questionStart + beatSec;
 
-      this.currentQuestion = { chord: targetChord, beatSec };
+      this.currentQuestion =
+        type === "progression"
+          ? { progression: targetItem, chordMap, beatSec }
+          : { chord: targetItem, beatSec };
       this.updateAuxControls();
 
       this.setDisplay("?", "question");
@@ -2690,7 +3118,112 @@ class EarTrainingApp {
 
       this.progressEl.textContent = `${index}/${numNotes} · listen · ${correctCount}`;
       this.maybeClick(questionStart);
-      this.audio.scheduleChord(targetChord.midis, questionStart, beatSec, this.audio.noteBeat1Gain);
+      if (type === "progression") {
+        this.audio.scheduleProgression(
+          chordMap,
+          targetItem.chordIds,
+          questionStart,
+          beatSec,
+          this.audio.noteBeat1Gain
+        );
+      } else {
+        this.audio.scheduleChord(targetItem.midis, questionStart, beatSec, this.audio.noteBeat1Gain);
+      }
+      if (!(await this.waitUntilAudio(listenEnd))) break;
+
+      this.setDisplay("Tap", "tap");
+      this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
+      this.maybeClick(listenEnd);
+
+      const tapStartedAt = performance.now();
+      const pressedId = await this.waitForKeyPress();
+      if (!this.running || pressedId === null) break;
+
+      const isCorrect = pressedId === targetItem.id;
+      if (isCorrect) correctCount += 1;
+      adaptive.recordAnswer(targetItem.id, isCorrect, performance.now() - tapStartedAt);
+
+      this.keyboard.markAnswer(pressedId, targetItem.id);
+      const answerAt = Math.max(listenEnd, this.audio.ctx.currentTime + 0.02);
+      const pressedLabel = getItemById(items, pressedId)?.label ?? pressedId;
+      if (isCorrect) {
+        this.setDisplay(targetItem.label, "correct", null, { mark: "✓" });
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
+      } else {
+        this.setDisplay(targetItem.label, "wrong", null, { mark: "×" });
+        this.progressEl.textContent =
+          `${index}/${numNotes} · ${pressedLabel} → ${targetItem.label} · ${correctCount}/${index}`;
+      }
+
+      this.maybeClick(answerAt);
+      if (type === "progression") {
+        this.audio.scheduleProgression(
+          chordMap,
+          targetItem.chordIds,
+          answerAt,
+          beatSec,
+          this.audio.noteAnswerGain
+        );
+        if (!(await this.waitUntilAudio(answerAt + targetItem.chordIds.length * beatSec))) break;
+      } else {
+        this.audio.scheduleChord(targetItem.midis, answerAt, beatSec, this.audio.noteAnswerGain);
+        if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
+      }
+    }
+
+    if (!this.running) return;
+
+    const accuracy = numNotes ? Math.round((correctCount / numNotes) * 100) : 0;
+    this.setDisplay("Done", "answer");
+    this.progressEl.textContent = `${correctCount}/${numNotes} (${accuracy}%)`;
+    this.stop();
+  }
+
+  async startIntervalSession({ numNotes, beatSec, notes }) {
+    let correctCount = 0;
+    const { start, end } = this.getRangeBounds();
+    const intervalIds = INTERVAL_DEFS.map((item) => item.id);
+    const adaptive = new AdaptiveLearning(this.adaptiveScopeKey(notes));
+    await this.audio.ensurePlayback();
+
+    for (let i = 0; i < numNotes; i += 1) {
+      if (!this.running) break;
+
+      const targetId = adaptive.pickNote(intervalIds);
+      const targetInterval = getIntervalById(targetId);
+      if (!targetInterval) break;
+
+      const roots = validIntervalRoots(start, end, targetInterval.semitones);
+      if (!roots.length) continue;
+
+      const lowMidi = randomChoice(roots);
+      const highMidi = lowMidi + targetInterval.semitones;
+      const style = this.getIntervalStyle();
+      const listenDur = questionEndForInterval(beatSec, style);
+
+      const index = i + 1;
+      const questionStart = this.audio.ctx.currentTime + 0.05;
+      const questionEnd = questionStart + listenDur;
+
+      this.currentQuestion = {
+        interval: { lowMidi, highMidi, style, id: targetInterval.id },
+        beatSec,
+      };
+      this.updateAuxControls();
+
+      this.setDisplay("?", "question");
+      this.keyboard.clearFeedback();
+
+      this.progressEl.textContent = `${index}/${numNotes} · ${style} · ${correctCount}`;
+      this.maybeClick(questionStart);
+      this.audio.scheduleInterval(
+        lowMidi,
+        highMidi,
+        questionStart,
+        beatSec,
+        style,
+        this.audio.noteBeat1Gain
+      );
       if (!(await this.waitUntilAudio(questionEnd))) break;
 
       this.setDisplay("Tap", "tap");
@@ -2701,25 +3234,96 @@ class EarTrainingApp {
       const pressedId = await this.waitForKeyPress();
       if (!this.running || pressedId === null) break;
 
-      const isCorrect = pressedId === targetChord.id;
+      const isCorrect = pressedId === targetInterval.id;
       if (isCorrect) correctCount += 1;
-      adaptive.recordAnswer(targetChord.id, isCorrect, performance.now() - tapStartedAt);
+      adaptive.recordAnswer(targetInterval.id, isCorrect, performance.now() - tapStartedAt);
 
-      this.keyboard.markAnswer(pressedId, targetChord.id);
+      this.keyboard.markAnswer(pressedId, targetInterval.id);
       const answerAt = Math.max(questionEnd, this.audio.ctx.currentTime + 0.02);
-      const pressedLabel = getTriadById(pressedId)?.label ?? pressedId;
+      const pressedLabel = getIntervalById(pressedId)?.label ?? pressedId;
       if (isCorrect) {
-        this.setDisplay(targetChord.label, "correct", null, { mark: "✓" });
+        this.setDisplay(targetInterval.label, "correct", null, { mark: "✓" });
         this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
-        this.setDisplay(targetChord.label, "wrong", null, { mark: "×" });
+        this.setDisplay(targetInterval.label, "wrong", null, { mark: "×" });
         this.progressEl.textContent =
-          `${index}/${numNotes} · ${pressedLabel} → ${targetChord.label} · ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${pressedLabel} → ${targetInterval.label} · ${correctCount}/${index}`;
       }
 
       this.maybeClick(answerAt);
-      this.audio.scheduleChord(targetChord.midis, answerAt, beatSec, this.audio.noteAnswerGain);
-      if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
+      this.audio.scheduleInterval(
+        lowMidi,
+        highMidi,
+        answerAt,
+        beatSec,
+        style,
+        this.audio.noteAnswerGain
+      );
+      if (!(await this.waitUntilAudio(answerAt + listenDur))) break;
+    }
+
+    if (!this.running) return;
+
+    const accuracy = numNotes ? Math.round((correctCount / numNotes) * 100) : 0;
+    this.setDisplay("Done", "answer");
+    this.progressEl.textContent = `${correctCount}/${numNotes} (${accuracy}%)`;
+    this.stop();
+  }
+
+  async startMelodySession({ numNotes, beatSec, notes }) {
+    let correctCount = 0;
+    const adaptive = new AdaptiveLearning(this.adaptiveScopeKey(notes));
+    await this.audio.ensurePlayback();
+
+    for (let i = 0; i < numNotes; i += 1) {
+      if (!this.running) break;
+
+      const length =
+        MELODY_MIN_LEN +
+        Math.floor(Math.random() * (MELODY_MAX_LEN - MELODY_MIN_LEN + 1));
+      const melody = [];
+      for (let n = 0; n < length; n += 1) {
+        melody.push(adaptive.pickNote(notes));
+      }
+      const melodyKey = melody.join("-");
+      const index = i + 1;
+      const questionStart = this.audio.ctx.currentTime + 0.05;
+      const listenEnd = questionStart + melody.length * beatSec;
+
+      this.currentQuestion = { melody, beatSec };
+      this.updateAuxControls();
+
+      this.setDisplay("?", "question");
+      this.keyboard.clearFeedback();
+
+      this.progressEl.textContent = `${index}/${numNotes} · ${melody.length} notes · ${correctCount}`;
+      this.maybeClick(questionStart);
+      this.audio.scheduleMelody(melody, questionStart, beatSec, this.audio.noteBeat1Gain);
+      if (!(await this.waitUntilAudio(listenEnd))) break;
+
+      this.setDisplay("Replay", "tap");
+      this.progressEl.textContent = `${index}/${numNotes} · replay · ${correctCount}`;
+
+      const tapStartedAt = performance.now();
+      const entered = await this.waitForMelodySequence(melody.length);
+      if (!this.running || !entered) break;
+
+      const isCorrect = entered.every((midi, idx) => midi === melody[idx]);
+      if (isCorrect) correctCount += 1;
+      adaptive.recordAnswer(melodyKey, isCorrect, performance.now() - tapStartedAt);
+
+      const answerAt = Math.max(listenEnd, this.audio.ctx.currentTime + 0.02);
+      if (isCorrect) {
+        this.setDisplay(`${melody.length} notes`, "correct", null, { mark: "✓" });
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
+      } else {
+        this.setDisplay(`${melody.length} notes`, "wrong", null, { mark: "×" });
+        this.progressEl.textContent = `${index}/${numNotes} · wrong · ${correctCount}/${index}`;
+      }
+
+      this.maybeClick(answerAt);
+      this.audio.scheduleMelody(melody, answerAt, beatSec, this.audio.noteAnswerGain);
+      if (!(await this.waitUntilAudio(answerAt + melody.length * beatSec))) break;
     }
 
     if (!this.running) return;
@@ -2759,6 +3363,10 @@ class EarTrainingApp {
 
       if (this.isChordMode()) {
         await this.startChordSession({ numNotes, beatSec });
+      } else if (this.isIntervalMode()) {
+        await this.startIntervalSession({ numNotes, beatSec, notes });
+      } else if (this.isMelodyMode()) {
+        await this.startMelodySession({ numNotes, beatSec, notes });
       } else if (this.isInteractiveMode()) {
         await this.startInteractiveSession({
           numNotes,
