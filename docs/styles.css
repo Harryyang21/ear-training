@@ -1,15 +1,19 @@
 :root {
-  --bg: #0f1419;
+  --bg: #0c1017;
+  --bg-soft: #121824;
   --panel: #1a2332;
+  --panel-soft: #1e2a3c;
   --text: #eef2f7;
   --muted: #8b9cb3;
   --accent: #4da3ff;
-  --accent-glow: rgba(77, 163, 255, 0.55);
+  --accent-soft: rgba(77, 163, 255, 0.12);
+  --accent-glow: rgba(77, 163, 255, 0.45);
   --white-key: #f4f6fa;
   --white-key-active: #ffe082;
   --black-key: #1f2937;
   --black-key-active: #ffb74d;
   --border: #2d3a4f;
+  --success: #51cf66;
 }
 
 * {
@@ -19,7 +23,9 @@
 html, body {
   margin: 0;
   min-height: 100%;
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(77, 163, 255, 0.08), transparent 55%),
+    var(--bg);
   color: var(--text);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -29,16 +35,16 @@ html, body {
 }
 
 .app {
-  max-width: 680px;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 14px 14px calc(20px + env(safe-area-inset-bottom));
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
 }
 
 .header {
   position: relative;
   text-align: center;
-  margin-bottom: 10px;
-  padding-top: 2px;
+  margin-bottom: 14px;
+  padding: 8px 0 4px;
 }
 
 .metronome-toggle {
@@ -65,14 +71,16 @@ html, body {
 
 .header h1 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: clamp(1.35rem, 5vw, 1.65rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.86rem;
+  line-height: 1.35;
 }
 
 .practice-time {
@@ -193,11 +201,12 @@ html, body {
 .controls-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 10px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--panel);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel-soft), var(--panel));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .control-row {
@@ -299,9 +308,17 @@ html, body {
 .play-area {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  height: clamp(210px, 32vh, 280px);
-  margin-bottom: 10px;
+  gap: 8px;
+  height: clamp(220px, 34vh, 300px);
+  margin-bottom: 12px;
+}
+
+.play-area.mode-pad {
+  height: clamp(250px, 40vh, 360px);
+}
+
+.play-area.mode-interval {
+  height: clamp(230px, 36vh, 300px);
 }
 
 .display-area {
@@ -316,12 +333,13 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  background: var(--panel);
+  gap: 6px;
+  background: linear-gradient(180deg, var(--panel-soft), var(--panel));
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 8px 12px 10px;
+  border-radius: 16px;
+  padding: 10px 14px 12px;
   text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .note-display {
@@ -450,41 +468,75 @@ html, body {
 .chord-pad {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   min-height: 100%;
   align-content: start;
-  padding: 4px 0;
+  padding: 6px 2px;
   overflow-y: auto;
 }
 
 .chord-pad.interval-pad {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+  padding: 8px 4px;
+  align-content: center;
+}
+
+.chord-pad.progression-pad {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .chord-btn {
-  min-height: 44px;
-  padding: 10px 6px;
-  border-radius: 10px;
+  min-height: 42px;
+  padding: 9px 8px;
+  border-radius: 12px;
   border: 1px solid var(--border);
-  background: #1a2433;
+  background: linear-gradient(180deg, #1f2a3b, #182030);
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 700;
   letter-spacing: 0.01em;
+  line-height: 1.15;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.1s ease;
 }
 
-.chord-pad.interactive .chord-btn:not(:disabled) {
+.chord-pad.interval-pad .chord-btn {
+  min-height: 38px;
+  padding: 8px 4px;
+  font-size: 0.84rem;
+  border-radius: 10px;
+}
+
+.chord-pad.progression-pad .chord-btn {
+  min-height: 48px;
+  padding: 10px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.chord-pad:not(.interactive) .chord-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.chord-pad:not(.interactive) .chord-btn:not(:disabled):hover {
+  border-color: rgba(77, 163, 255, 0.45);
+  background: linear-gradient(180deg, #243247, #1b2838);
+}
+
+.chord-pad:not(.interactive) .chord-btn:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.chord-pad.interactive .chord-btn.is-session:not(:disabled) {
   cursor: pointer;
   touch-action: manipulation;
 }
 
-.chord-pad.interactive .chord-btn:not(:disabled):active {
+.chord-pad.interactive .chord-btn.is-session:not(:disabled):active {
   background: #243247;
-}
-
-.chord-btn:disabled {
-  opacity: 0.55;
 }
 
 .chord-btn.correct {
@@ -552,12 +604,13 @@ html, body {
 .transport {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 10px;
-  margin-bottom: 8px;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--panel);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel-soft), var(--panel));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
 .transport .btn {
@@ -636,7 +689,7 @@ html, body {
 
 @media (max-width: 520px) {
   .controls-panel {
-    padding: 10px;
+    padding: 10px 12px;
     gap: 8px;
   }
 
@@ -645,6 +698,25 @@ html, body {
   }
 
   .play-area {
-    height: clamp(210px, 32vh, 260px);
+    height: clamp(210px, 32vh, 280px);
+  }
+
+  .play-area.mode-pad {
+    height: clamp(240px, 38vh, 320px);
+  }
+
+  .chord-pad.interval-pad {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .chord-pad.progression-pad {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 521px) {
+  .chord-pad.progression-pad {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

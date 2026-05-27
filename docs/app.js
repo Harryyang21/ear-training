@@ -37,10 +37,29 @@ const C_MAJOR_SEVENTHS = [
 ];
 
 const C_MAJOR_PROGRESSIONS = [
-  { id: "I-IV-V-I", label: "I–IV–V–I", chordIds: ["C", "F", "G", "C"] },
-  { id: "I-V-vi-IV", label: "I–V–vi–IV", chordIds: ["C", "G", "Am", "F"] },
-  { id: "ii-V-I", label: "ii–V–I", chordIds: ["Dm", "G", "C"] },
-  { id: "I-vi-IV-V", label: "I–vi–IV–V", chordIds: ["C", "Am", "F", "G"] },
+  { id: "I-IV-V-I", label: "I–IV–V–I · Canon 🎼", chordIds: ["C", "F", "G", "C"] },
+  { id: "I-V-vi-IV", label: "I–V–vi–IV · Pop 🎤", chordIds: ["C", "G", "Am", "F"] },
+  { id: "vi-IV-I-V", label: "vi–IV–I–V · Ballad 💫", chordIds: ["Am", "F", "C", "G"] },
+  { id: "I-vi-IV-V", label: "I–vi–IV–V · 50s 🕺", chordIds: ["C", "Am", "F", "G"] },
+  { id: "ii-V-I", label: "ii–V–I · Jazz 🎷", chordIds: ["Dm", "G", "C"] },
+  { id: "I-IV-vi-V", label: "I–IV–vi–V", chordIds: ["C", "F", "Am", "G"] },
+  { id: "vi-V-IV-V", label: "vi–V–IV–V", chordIds: ["Am", "G", "F", "G"] },
+  { id: "I-V-IV-V", label: "I–V–IV–V · Rock 🎸", chordIds: ["C", "G", "F", "G"] },
+  { id: "I-V-vi-iii", label: "I–V–vi–iii · Beatles 🎹", chordIds: ["C", "G", "Am", "Em"] },
+  { id: "I-vi-ii-V", label: "I–vi–ii–V · Doowop", chordIds: ["C", "Am", "Dm", "G"] },
+  { id: "I-iii-vi-IV", label: "I–iii–vi–IV", chordIds: ["C", "Em", "Am", "F"] },
+  { id: "IV-I-V-vi", label: "IV–I–V–vi", chordIds: ["F", "C", "G", "Am"] },
+  { id: "I-V-ii-IV", label: "I–V–ii–IV", chordIds: ["C", "G", "Dm", "F"] },
+  { id: "vi-IV-V-I", label: "vi–IV–V–I · Epic ✨", chordIds: ["Am", "F", "G", "C"] },
+  { id: "I-IV-vi-iii", label: "I–IV–vi–iii", chordIds: ["C", "F", "Am", "Em"] },
+  { id: "I-bVII-IV-I", label: "I–♭VII–IV–I · Rock 🔥", chordIds: ["C", "Bb", "F", "C"] },
+  { id: "vi-I-IV-V", label: "vi–I–IV–V", chordIds: ["Am", "C", "F", "G"] },
+  { id: "I-V-vi-IV-V", label: "I–V–vi–IV–V · Extended", chordIds: ["C", "G", "Am", "F", "G"] },
+];
+
+const C_MAJOR_POP_CHORDS = [
+  ...C_MAJOR_TRIADS,
+  { id: "Bb", label: "B♭", midis: [58, 62, 65] },
 ];
 
 const INVERSION_LABELS = ["", " 6", " 6/4", " 4/2"];
@@ -98,7 +117,12 @@ const CHORD_SETS = {
     type: "chord",
     chords: expandChordsWithInversions(C_MAJOR_SEVENTHS),
   },
-  progressions: { label: "Progressions", type: "progression", chords: C_MAJOR_TRIADS, progressions: C_MAJOR_PROGRESSIONS },
+  progressions: {
+    label: "Progressions",
+    type: "progression",
+    chords: C_MAJOR_POP_CHORDS,
+    progressions: C_MAJOR_PROGRESSIONS,
+  },
 };
 
 const INTERVAL_DEFS = [
@@ -211,7 +235,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260531e";
+const APP_VERSION = "2.1.0";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -384,13 +408,64 @@ function friendlyOrigin() {
 const DEFAULT_NUM_NOTES = 300;
 
 const MODE_SUBTITLES = {
-  passive: "Two beats · auto reveal",
-  interactive: "A440 · one beat · tap to answer",
-  bass: "Low bass · A440 · tap to answer",
-  chords: "Chords · tap to answer",
-  intervals: "Intervals · tap to answer",
-  melody: "Melody · replay on keyboard",
+  passive: "🎧 Two beats · auto reveal",
+  interactive: "👆 A440 · tap to answer",
+  bass: "🎸 Low bass · tap to answer",
+  chords: "🎹 Chords · tap to answer",
+  intervals: "🎯 Intervals · pick the size",
+  melody: "🎼 Melody · replay on keyboard",
 };
+
+const MELODY_PREVIEW_GAIN = 0.72;
+const CHORD_PREVIEW_GAIN = 0.88;
+const TRIAD_PREVIEW_SETS = new Set(["c-major-triads", "a-minor-triads"]);
+
+const COMPUTER_WHITE_CODES = [
+  "KeyZ",
+  "KeyX",
+  "KeyC",
+  "KeyV",
+  "KeyB",
+  "KeyN",
+  "KeyM",
+  "Comma",
+  "Period",
+  "Slash",
+  "BracketLeft",
+  "BracketRight",
+];
+const COMPUTER_BLACK_CODES = [
+  "KeyS",
+  "KeyD",
+  "KeyG",
+  "KeyH",
+  "KeyJ",
+  "KeyQ",
+  "KeyW",
+  "KeyE",
+  "KeyR",
+  "KeyT",
+  "KeyY",
+  "KeyU",
+];
+
+function buildComputerKeyMap(startMidi, endMidi) {
+  const map = new Map();
+  let whiteIndex = 0;
+  let blackIndex = 0;
+  for (let midi = startMidi; midi <= endMidi; midi += 1) {
+    if (isBlackKey(midi)) {
+      if (blackIndex < COMPUTER_BLACK_CODES.length) {
+        map.set(COMPUTER_BLACK_CODES[blackIndex], midi);
+        blackIndex += 1;
+      }
+    } else if (whiteIndex < COMPUTER_WHITE_CODES.length) {
+      map.set(COMPUTER_WHITE_CODES[whiteIndex], midi);
+      whiteIndex += 1;
+    }
+  }
+  return map;
+}
 
 const PRACTICE_TIME_STORAGE_KEY = "earTrainingPracticeMs";
 const ADAPTIVE_STATS_STORAGE_KEY = "earTrainingAdaptiveStats";
@@ -2028,6 +2103,8 @@ class PianoKeyboard {
     this.resizeObserver = null;
     this.interactive = false;
     this.onKeyPress = null;
+    this.computerKeyMap = new Map();
+    this.computerKeyHandler = null;
     this.pendingTap = null;
     this.scrollGateUntil = 0;
     this.lastScrollLeft = 0;
@@ -2047,6 +2124,7 @@ class PianoKeyboard {
   }
 
   destroy() {
+    this.unbindComputerKeys();
     this.abortController.abort();
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
@@ -2160,6 +2238,28 @@ class PianoKeyboard {
     key.addEventListener("pointercancel", this.onPointerCancel);
   }
 
+  bindComputerKeys(onKeyPress) {
+    this.unbindComputerKeys();
+    this.computerKeyHandler = (event) => {
+      if (!this.interactive || !onKeyPress) return;
+      if (event.repeat) return;
+      const tag = event.target?.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      const midi = this.computerKeyMap.get(event.code);
+      if (midi == null) return;
+      event.preventDefault();
+      onKeyPress(midi);
+    };
+    window.addEventListener("keydown", this.computerKeyHandler);
+  }
+
+  unbindComputerKeys() {
+    if (this.computerKeyHandler) {
+      window.removeEventListener("keydown", this.computerKeyHandler);
+      this.computerKeyHandler = null;
+    }
+  }
+
   setInteractive(enabled, onKeyPress = null) {
     this.interactive = enabled;
     this.onKeyPress = onKeyPress;
@@ -2169,9 +2269,11 @@ class PianoKeyboard {
       key.classList.toggle("pressable", enabled);
     }
 
-    if (enabled) {
+    if (enabled && onKeyPress) {
+      this.bindComputerKeys(onKeyPress);
       this.root.addEventListener("pointermove", this.onPointerMove, { passive: true });
     } else {
+      this.unbindComputerKeys();
       this.root.removeEventListener("pointermove", this.onPointerMove);
     }
   }
@@ -2194,6 +2296,7 @@ class PianoKeyboard {
     if (!whiteCount) return;
 
     this.root.style.minWidth = `${Math.max(whiteCount * 30, 320)}px`;
+    this.computerKeyMap = buildComputerKeyMap(startMidi, endMidi);
 
     for (const midi of whiteKeys) {
       const key = document.createElement("div");
@@ -2287,9 +2390,11 @@ class PianoKeyboard {
 }
 
 class ChordPad {
-  constructor(root, items) {
+  constructor(root, items, { previewHandler = null, padClass = "" } = {}) {
     this.root = root;
     this.items = items;
+    this.previewHandler = previewHandler;
+    this.padClass = padClass;
     this.buttonElements = new Map();
     this.interactive = false;
     this.onPress = null;
@@ -2303,19 +2408,32 @@ class ChordPad {
 
   build() {
     this.root.innerHTML = "";
-    this.root.className = "chord-pad";
+    this.root.className = `chord-pad ${this.padClass}`.trim();
     for (const item of this.items) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "chord-btn";
       button.textContent = item.label;
       button.dataset.chordId = item.id;
+      if (item.hint) {
+        button.title = item.hint;
+      }
       button.addEventListener("click", () => {
-        if (this.interactive && this.onPress) this.onPress(item.id);
+        if (this.interactive && this.onPress) {
+          this.onPress(item.id);
+          return;
+        }
+        if (this.previewHandler && item.midis?.length) {
+          this.previewHandler(item);
+        }
       });
       this.root.appendChild(button);
       this.buttonElements.set(item.id, button);
     }
+  }
+
+  setPreviewHandler(handler) {
+    this.previewHandler = handler;
   }
 
   setInteractive(enabled, onPress = null) {
@@ -2323,7 +2441,8 @@ class ChordPad {
     this.onPress = onPress;
     this.root.classList.toggle("interactive", enabled);
     for (const button of this.buttonElements.values()) {
-      button.disabled = !enabled;
+      button.disabled = false;
+      button.classList.toggle("is-session", enabled);
     }
   }
 
@@ -2399,6 +2518,7 @@ class EarTrainingApp {
     this.statusEl = document.getElementById("status");
     this.helpEl = document.getElementById("help");
     this.keyboardEl = document.getElementById("pianoKeyboard");
+    this.playAreaEl = document.getElementById("playArea");
     this.startBtn = document.getElementById("startBtn");
     this.stopBtn = document.getElementById("stopBtn");
     this.refABtn = document.getElementById("refABtn");
@@ -2427,11 +2547,43 @@ class EarTrainingApp {
     this.practiceTimeLinkEl.textContent = `Practiced ${formatPracticeTime(this.practiceTracker.getTotalMs())}`;
   }
 
+  updateHelpText() {
+    if (!this.samplesReady) return;
+    let hint = `Ready · v${APP_VERSION}`;
+    if (!this.running && this.isChordPreviewEnabled()) {
+      hint += " · Tap chords to preview 🎵";
+    } else if (!this.running && this.isMelodyMode()) {
+      hint += " · Z–M keys work during replay ⌨️";
+    }
+    this.helpEl.textContent = hint;
+  }
+
+  isChordPreviewEnabled() {
+    if (this.running || !this.samplesReady || !this.isChordMode()) return false;
+    return TRIAD_PREVIEW_SETS.has(this.chordSetEl?.value || "");
+  }
+
+  async previewTriad(item) {
+    if (!item?.midis?.length || this.running) return;
+    await this.ensureAudioReadyForControls();
+    const beatSec = 60 / (Number(this.bpmEl.value) || 60);
+    this.audio.chordNow(item.midis, Math.min(beatSec * 0.85, 1.1), CHORD_PREVIEW_GAIN);
+  }
+
+  async playMelodyTap(midi, beatSec) {
+    await this.ensureAudioReadyForControls();
+    const duration = Math.min(beatSec * 0.75, 0.65);
+    this.audio.noteNow(midi, duration, MELODY_PREVIEW_GAIN);
+    this.keyboard?.highlight(midi, true);
+    window.setTimeout(() => this.keyboard?.highlight(midi, false), 160);
+  }
+
   onChordSetChange() {
     const set = getChordSetItems(this.chordSetEl?.value || "c-major-triads");
     this.chordItems = set.items;
     this.chordMap = set.chordMap;
     if (this.isChordMode()) this.resetKeyboard();
+    this.updateHelpText();
   }
 
   showModeOptions() {
@@ -2463,6 +2615,7 @@ class EarTrainingApp {
     this.showModeOptions();
     this.updateModeHint();
     this.resetKeyboard();
+    this.updateHelpText();
   }
 
   isBassMode() {
@@ -2552,9 +2705,18 @@ class EarTrainingApp {
 
   getChoicePadItems() {
     if (this.isIntervalMode()) {
-      return INTERVAL_DEFS.map((item) => ({ id: item.id, label: item.label }));
+      return INTERVAL_DEFS.map((item) => ({
+        id: item.id,
+        label: item.label,
+        hint: `${item.semitones} semitone${item.semitones === 1 ? "" : "s"}`,
+      }));
     }
-    return this.chordItems.map((item) => ({ id: item.id, label: item.label }));
+    return this.chordItems.map((item) => ({
+      id: item.id,
+      label: item.label,
+      midis: item.midis,
+      hint: item.hint,
+    }));
   }
 
   async playReferenceA() {
@@ -2657,6 +2819,7 @@ class EarTrainingApp {
 
     this.helpEl.textContent = `Ready · v${APP_VERSION}`;
     void requestPersistentStorage();
+    this.updateHelpText();
     return true;
   }
 
@@ -2707,6 +2870,7 @@ class EarTrainingApp {
       this.setStatus("");
       this.progressEl.textContent = "Ready";
       this.setControlsDisabled(false);
+      this.updateHelpText();
     } catch (error) {
       if (signal.aborted || error.message === "Loading cancelled") return;
       this.samplesReady = false;
@@ -2735,16 +2899,36 @@ class EarTrainingApp {
 
   resetKeyboard() {
     this.keyboard?.destroy();
-    if (this.isChordMode() || this.isIntervalMode()) {
-      const items = this.getChoicePadItems().map((item) => ({ id: item.id, label: item.label }));
-      this.keyboard = new ChordPad(this.keyboardEl, items);
-      if (this.isIntervalMode()) this.keyboardEl.classList.add("interval-pad");
+    const padMode = this.isChordMode() || this.isIntervalMode();
+    this.playAreaEl?.classList.toggle("mode-pad", padMode);
+    this.playAreaEl?.classList.toggle("mode-interval", this.isIntervalMode());
+    this.playAreaEl?.classList.toggle("mode-progression", this.isProgressionsSet());
+
+    if (padMode) {
+      const items = this.getChoicePadItems();
+      let padClass = this.isIntervalMode() ? "interval-pad" : "";
+      if (this.isProgressionsSet()) padClass = "progression-pad";
+      this.keyboard = new ChordPad(this.keyboardEl, items, {
+        padClass,
+        previewHandler: this.isChordPreviewEnabled()
+          ? (item) => void this.previewTriad(item)
+          : null,
+      });
     } else {
       this.keyboardEl.className = "piano-keyboard";
       const range = this.getKeyboardRange();
       this.keyboard = new PianoKeyboard(this.keyboardEl, range.start, range.end);
     }
     this.keyboard.setInteractive(false);
+    if (this.keyboard instanceof ChordPad) {
+      this.keyboard.setPreviewHandler(
+        this.isChordPreviewEnabled() ? (item) => void this.previewTriad(item) : null
+      );
+    }
+  }
+
+  isProgressionsSet() {
+    return this.isChordMode() && this.chordSetEl?.value === "progressions";
   }
 
   setDisplay(text, tone = "question", midi = null, { mark = null } = {}) {
@@ -2884,21 +3068,22 @@ class EarTrainingApp {
     });
   }
 
-  waitForMelodySequence(length) {
+  waitForMelodySequence(length, beatSec) {
     return new Promise((resolve) => {
       const sequence = [];
-      this.interactiveResolve = () => resolve(null);
-      this.keyboard.setInteractive(true, (midi) => {
+      const handleNote = (midi) => {
         if (!this.running) return;
+        void this.playMelodyTap(midi, beatSec);
         sequence.push(midi);
-        this.keyboard.highlight(midi, true);
-        window.setTimeout(() => this.keyboard.highlight(midi, false), 180);
         if (sequence.length >= length) {
           this.keyboard.setInteractive(false);
           this.interactiveResolve = null;
           resolve(sequence);
         }
-      });
+      };
+
+      this.interactiveResolve = () => resolve(null);
+      this.keyboard.setInteractive(true, handleNote);
     });
   }
 
@@ -2937,6 +3122,12 @@ class EarTrainingApp {
     this.progressEl.textContent = this.samplesReady ? "Ready" : "Stopped";
     this.setStatus("");
     this.setControlsDisabled(false);
+    if (this.keyboard?.setPreviewHandler) {
+      this.keyboard.setPreviewHandler(
+        this.isChordPreviewEnabled() ? (item) => void this.previewTriad(item) : null
+      );
+    }
+    this.updateHelpText();
   }
 
   formatLoadingStatus(done, total, url = "", { fromCache = false } = {}) {
@@ -3338,7 +3529,7 @@ class EarTrainingApp {
       this.progressEl.textContent = `${index}/${numNotes} · replay · ${correctCount}`;
 
       const tapStartedAt = performance.now();
-      const entered = await this.waitForMelodySequence(melody.length);
+      const entered = await this.waitForMelodySequence(melody.length, beatSec);
       if (!this.running || !entered) break;
 
       const isCorrect = entered.every((midi, idx) => midi === melody[idx]);

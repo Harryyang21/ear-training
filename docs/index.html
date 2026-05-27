@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 20260531e -->
-  <link rel="stylesheet" href="styles.css?v=20260531e">
+  <!-- build: 2.1.0 -->
+  <link rel="stylesheet" href="styles.css?v=2.1.0">
 </head>
 <body>
   <div class="app">
@@ -17,7 +17,7 @@
         <input id="metronome" type="checkbox" checked>
         <span>Click</span>
       </label>
-      <h1>Ear Training</h1>
+      <h1>🎵 Ear Training</h1>
       <p id="subtitle" class="subtitle">Two beats · auto reveal</p>
       <p class="practice-time"><a id="practiceTimeLink" class="practice-link" href="stats.html">Practiced 0:00</a></p>
     </header>
@@ -100,7 +100,7 @@
       </div>
     </section>
 
-    <section class="play-area">
+    <section id="playArea" class="play-area">
       <div class="display-area">
         <div class="display-panel">
           <div id="noteDisplay" class="note-display">?</div>
@@ -132,7 +132,7 @@
   <script>
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=20260531e"></script>
+  <script src="app.js?v=2.1.0"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
