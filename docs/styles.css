@@ -113,26 +113,6 @@ html, body {
   display: none !important;
 }
 
-.field-range .range-sliders {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.field-range input[type="range"] {
-  width: 100%;
-  accent-color: var(--accent);
-}
-
-.range-label {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.78rem;
-  color: var(--muted);
-  text-align: center;
-}
-
 .controls {
   margin-bottom: 10px;
 }

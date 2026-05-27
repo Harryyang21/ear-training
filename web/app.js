@@ -159,7 +159,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260531a";
+const APP_VERSION = "20260531b";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -355,7 +355,6 @@ const ADAPTIVE_RANDOM_MIX = 0.62;
 
 const DAILY_GOAL_MS = 10 * 60 * 1000;
 const DAILY_LOG_STORAGE_KEY = "earTrainingDailyLog";
-const CUSTOM_RANGE_STORAGE_KEY = "earTrainingCustomRange";
 const HEATMAP_WEEKS = 12;
 
 function answerRainbowClass(midi) {
@@ -2256,10 +2255,6 @@ class EarTrainingApp {
     this.intervalStyleEl = document.getElementById("intervalStyle");
     this.chordOptionsRow = document.getElementById("chordOptionsRow");
     this.intervalOptionsRow = document.getElementById("intervalOptionsRow");
-    this.customRangeRow = document.getElementById("customRangeRow");
-    this.rangeMinEl = document.getElementById("rangeMin");
-    this.rangeMaxEl = document.getElementById("rangeMax");
-    this.rangeLabelEl = document.getElementById("rangeLabel");
     this.bpmEl = document.getElementById("bpm");
     this.numNotesEl = document.getElementById("numNotes");
     this.noteDisplayEl = document.getElementById("noteDisplay");
@@ -2276,14 +2271,11 @@ class EarTrainingApp {
     this.stopBtn.addEventListener("click", () => this.stop());
     this.refABtn?.addEventListener("click", () => this.playReferenceA());
     this.replayBtn?.addEventListener("click", () => this.replayCurrentQuestion());
-    this.levelEl.addEventListener("change", () => this.onLevelChange());
+    this.levelEl.addEventListener("change", () => this.resetKeyboard());
     this.modeEl.addEventListener("change", () => this.onModeChange());
     this.chordSetEl?.addEventListener("change", () => this.onChordSetChange());
     this.instrumentEl.addEventListener("change", () => this.onInstrumentChange());
-    this.rangeMinEl?.addEventListener("input", () => this.onCustomRangeChange());
-    this.rangeMaxEl?.addEventListener("input", () => this.onCustomRangeChange());
 
-    this.loadCustomRange();
     this.onModeChange();
     this.numNotesEl.value = String(DEFAULT_NUM_NOTES);
     this.setDisplay("?", "question");
@@ -2317,60 +2309,6 @@ class EarTrainingApp {
     }
   }
 
-  loadCustomRange() {
-    try {
-      const raw = localStorage.getItem(CUSTOM_RANGE_STORAGE_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (this.rangeMinEl && data.min != null) this.rangeMinEl.value = String(data.min);
-      if (this.rangeMaxEl && data.max != null) this.rangeMaxEl.value = String(data.max);
-    } catch {
-      // Ignore invalid stored range.
-    }
-    this.updateCustomRangeLabel();
-  }
-
-  saveCustomRange() {
-    if (!this.rangeMinEl || !this.rangeMaxEl) return;
-    try {
-      localStorage.setItem(
-        CUSTOM_RANGE_STORAGE_KEY,
-        JSON.stringify({ min: Number(this.rangeMinEl.value), max: Number(this.rangeMaxEl.value) })
-      );
-    } catch {
-      // Ignore private mode storage errors.
-    }
-  }
-
-  onCustomRangeChange() {
-    if (!this.rangeMinEl || !this.rangeMaxEl) return;
-    let min = Number(this.rangeMinEl.value);
-    let max = Number(this.rangeMaxEl.value);
-    if (min > max) {
-      [min, max] = [max, min];
-      this.rangeMinEl.value = String(min);
-      this.rangeMaxEl.value = String(max);
-    }
-    this.saveCustomRange();
-    this.updateCustomRangeLabel();
-    this.resetKeyboard();
-  }
-
-  updateCustomRangeLabel() {
-    if (!this.rangeMinEl || !this.rangeMaxEl || !this.rangeLabelEl) return;
-    const min = Number(this.rangeMinEl.value);
-    const max = Number(this.rangeMaxEl.value);
-    this.rangeLabelEl.textContent = `${noteLabel(min)} – ${noteLabel(max)}`;
-  }
-
-  onLevelChange() {
-    const custom = this.levelEl.value === "custom";
-    this.customRangeRow?.classList.toggle("hidden", !custom);
-    this.showModeOptions();
-    this.updateCustomRangeLabel();
-    this.resetKeyboard();
-  }
-
   onChordSetChange() {
     const set = getChordSetItems(this.chordSetEl?.value || "c-major-triads");
     this.chordItems = set.items;
@@ -2378,22 +2316,10 @@ class EarTrainingApp {
     if (this.isChordMode()) this.resetKeyboard();
   }
 
-  usesCustomRange() {
-    return (
-      !this.isBassMode() &&
-      !this.isChordMode() &&
-      this.levelEl.value === "custom"
-    );
-  }
-
   showModeOptions() {
     const mode = this.modeEl.value;
     this.chordOptionsRow?.classList.toggle("hidden", mode !== "chords");
     this.intervalOptionsRow?.classList.toggle("hidden", mode !== "intervals");
-    const showCustom =
-      (mode === "passive" || mode === "interactive" || mode === "intervals" || mode === "melody") &&
-      this.levelEl.value === "custom";
-    this.customRangeRow?.classList.toggle("hidden", !showCustom);
   }
 
   updatePracticeTimeDisplay() {
@@ -2471,13 +2397,6 @@ class EarTrainingApp {
   }
 
   getPreset() {
-    if (this.levelEl.value === "custom") {
-      const min = Number(this.rangeMinEl?.value) || 48;
-      const max = Number(this.rangeMaxEl?.value) || 72;
-      const start = Math.min(min, max);
-      const end = Math.max(min, max);
-      return { start, end, label: `${noteLabel(start)}-${noteLabel(end)}` };
-    }
     return RANGE_PRESETS[this.levelEl.value] || RANGE_PRESETS.advanced;
   }
 
