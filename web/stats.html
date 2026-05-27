@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Ear Training · Stats</title>
+  <!-- build: 20260531c -->
+  <link rel="stylesheet" href="styles.css?v=20260531c">
+</head>
+<body>
+  <div class="app stats-page">
+    <header class="header">
+      <a class="back-link" href="index.html">← Practice</a>
+      <h1>Stats</h1>
+      <p id="totalPractice" class="subtitle">Total practiced 0:00</p>
+      <p id="dailyGoalText" class="daily-goal-text">Today 0 / 10 min · Streak 0</p>
+    </header>
+
+    <section class="stats-panel">
+      <h2 class="stats-heading">12-week activity</h2>
+      <div id="practiceHeatmap" class="practice-heatmap stats-heatmap" aria-label="Practice heatmap"></div>
+    </section>
+
+    <section class="stats-panel">
+      <h2 class="stats-heading">Interval accuracy</h2>
+      <p id="intervalChartHint" class="stats-hint">Practice intervals to see your radar chart.</p>
+      <div class="chart-wrap">
+        <canvas id="intervalRadar"></canvas>
+      </div>
+    </section>
+
+    <section class="stats-panel">
+      <h2 class="stats-heading">Chord accuracy</h2>
+      <p id="chordChartHint" class="stats-hint">Practice chords to see your radar chart.</p>
+      <div class="chart-wrap">
+        <canvas id="chordRadar"></canvas>
+      </div>
+    </section>
+
+    <section class="stats-panel">
+      <h2 class="stats-heading">Weakest areas</h2>
+      <ul id="weakList" class="weak-list"></ul>
+    </section>
+
+    <footer class="footer">
+      <p>© Hao Yang</p>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="stats.js?v=20260531c"></script>
+</body>
+</html>

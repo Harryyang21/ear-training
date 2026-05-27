@@ -82,6 +82,17 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+.practice-link {
+  color: #7aa8d9;
+  text-decoration: none;
+}
+
+.practice-link:hover,
+.practice-link:focus {
+  color: #9ec5ef;
+  text-decoration: underline;
+}
+
 .daily-goal-text {
   margin: 2px 0 0;
   color: #7aa8d9;
@@ -95,6 +106,68 @@ html, body {
   gap: 3px;
   max-width: 220px;
   margin: 6px auto 0;
+}
+
+.stats-page .stats-heatmap {
+  max-width: 100%;
+  margin: 0;
+}
+
+.stats-panel {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.stats-heading {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stats-hint {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.stats-hint[hidden] {
+  display: none;
+}
+
+.chart-wrap {
+  position: relative;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.back-link {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  color: #7aa8d9;
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.back-link:hover,
+.back-link:focus {
+  text-decoration: underline;
+}
+
+.weak-list {
+  margin: 0;
+  padding-left: 1.1em;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.weak-list li + li {
+  margin-top: 4px;
 }
 
 .heatmap-cell {

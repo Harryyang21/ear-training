@@ -43,10 +43,61 @@ const C_MAJOR_PROGRESSIONS = [
   { id: "I-vi-IV-V", label: "I–vi–IV–V", chordIds: ["C", "Am", "F", "G"] },
 ];
 
+const INVERSION_LABELS = ["", " 6", " 6/4", " 4/2"];
+
+function inversionMidis(midis, inversion) {
+  const sorted = [...midis].sort((a, b) => a - b);
+  const count = sorted.length;
+  const inv = ((inversion % count) + count) % count;
+  const result = [];
+  for (let i = 0; i < count; i += 1) {
+    let note = sorted[(inv + i) % count];
+    if (i > 0) {
+      while (note <= result[i - 1]) note += 12;
+    }
+    result.push(note);
+  }
+  return result;
+}
+
+function expandChordsWithInversions(chords) {
+  const expanded = [];
+  for (const chord of chords) {
+    const count = chord.midis.length;
+    for (let inv = 0; inv < count; inv += 1) {
+      const suffix = inv === 0 ? "-root" : `-inv${inv}`;
+      const invLabel = INVERSION_LABELS[inv] ?? ` inv${inv}`;
+      expanded.push({
+        id: `${chord.id}${suffix}`,
+        label: `${chord.label}${invLabel}`,
+        midis: inversionMidis(chord.midis, inv),
+        baseId: chord.id,
+        inversion: inv,
+      });
+    }
+  }
+  return expanded;
+}
+
 const CHORD_SETS = {
   "c-major-triads": { label: "C major triads", type: "chord", chords: C_MAJOR_TRIADS },
+  "c-major-triads-inv": {
+    label: "C major triads + inversions",
+    type: "chord",
+    chords: expandChordsWithInversions(C_MAJOR_TRIADS),
+  },
   "a-minor-triads": { label: "A minor triads", type: "chord", chords: A_MINOR_TRIADS },
+  "a-minor-triads-inv": {
+    label: "A minor triads + inversions",
+    type: "chord",
+    chords: expandChordsWithInversions(A_MINOR_TRIADS),
+  },
   "c-major-7ths": { label: "C major 7ths", type: "chord", chords: C_MAJOR_SEVENTHS },
+  "c-major-7ths-inv": {
+    label: "C major 7ths + inversions",
+    type: "chord",
+    chords: expandChordsWithInversions(C_MAJOR_SEVENTHS),
+  },
   progressions: { label: "Progressions", type: "progression", chords: C_MAJOR_TRIADS, progressions: C_MAJOR_PROGRESSIONS },
 };
 
@@ -68,8 +119,6 @@ const INTERVAL_DEFS = [
 const MELODY_MIN_LEN = 3;
 const MELODY_MAX_LEN = 5;
 
-const CHORD_NOTE_GAIN = 0.58;
-
 function chordSetMidis(setKey) {
   const set = CHORD_SETS[setKey];
   if (!set) return [];
@@ -83,7 +132,10 @@ function chordSetMidis(setKey) {
 function getChordPreloadMidis() {
   const midis = new Set();
   for (const key of Object.keys(CHORD_SETS)) {
-    for (const midi of chordSetMidis(key)) midis.add(midi);
+    const set = CHORD_SETS[key];
+    for (const chord of set.chords) {
+      for (const midi of chord.midis) midis.add(midi);
+    }
   }
   return [...midis].sort((a, b) => a - b);
 }
@@ -159,7 +211,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260531b";
+const APP_VERSION = "20260531c";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -954,8 +1006,8 @@ function solfegeSupported(midi) {
   return midi >= SOLFEGE_MIN_MIDI && midi <= SOLFEGE_MAX_MIDI;
 }
 
-const NOTE_BEAT1_GAIN = 0.92;
-const NOTE_ANSWER_GAIN = 0.32;
+const NOTE_BEAT1_GAIN = 1;
+const NOTE_ANSWER_GAIN = 0.38;
 const SOLFEGE_GAIN = 0.58;
 // Match ear_training.py METRONOME_VOLUME_DB = -20
 const METRONOME_GAIN = 0.1;
@@ -1036,7 +1088,7 @@ class AudioEngine {
   async init() {
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.82;
+    this.master.gain.value = 0.96;
 
     // Safari/iOS suspends Web Audio on lock screen unless output goes through
     // an HTMLMediaElement backed by a MediaStream.
@@ -1768,6 +1820,18 @@ class AudioEngine {
     this.scheduleNoteBuffer(buffer, midi, when, durationSec);
   }
 
+  simultaneousVoiceGain(voiceCount, baseGain = 1) {
+    if (voiceCount <= 1) return baseGain;
+    return (baseGain * 1.35) / Math.sqrt(voiceCount);
+  }
+
+  scheduleSimultaneousNotes(midis, when, durationSec, gain = 1) {
+    const voiceGain = this.simultaneousVoiceGain(midis.length, gain);
+    for (const midi of midis) {
+      this.scheduleNote(midi, when, durationSec, voiceGain);
+    }
+  }
+
   scheduleNote(midi, when, durationSec, gain = 1) {
     const url = this.instrumentSamplePath(midi);
     const buffer = this.bufferCache.get(url);
@@ -1776,9 +1840,7 @@ class AudioEngine {
   }
 
   scheduleChord(midis, when, durationSec, gain = 1) {
-    for (const midi of midis) {
-      this.scheduleNote(midi, when, durationSec, gain * CHORD_NOTE_GAIN);
-    }
+    this.scheduleSimultaneousNotes(midis, when, durationSec, gain);
   }
 
   scheduleProgression(chordMap, chordIds, when, beatSec, gain = 1) {
@@ -1792,8 +1854,7 @@ class AudioEngine {
 
   scheduleInterval(lowMidi, highMidi, when, beatSec, style, gain = 1) {
     if (style === "harmonic") {
-      this.scheduleNote(lowMidi, when, beatSec, gain);
-      this.scheduleNote(highMidi, when, beatSec, gain);
+      this.scheduleSimultaneousNotes([lowMidi, highMidi], when, beatSec, gain);
       return;
     }
     this.scheduleNote(lowMidi, when, beatSec, gain);
@@ -2224,14 +2285,9 @@ function getBootstrapNotes() {
 
 class EarTrainingApp {
   constructor() {
-    this.practiceTimeEl = document.getElementById("practiceTime");
-    this.dailyGoalTextEl = document.getElementById("dailyGoalText");
-    this.practiceHeatmapEl = document.getElementById("practiceHeatmap");
-    this.dailyLog = new DailyPracticeLog(() => this.updateDailyGoalDisplay());
-    this.practiceTracker = new PracticeTimeTracker(() => {
-      this.updatePracticeTimeDisplay();
-      this.updateDailyGoalDisplay();
-    });
+    this.practiceTimeLinkEl = document.getElementById("practiceTimeLink");
+    this.dailyLog = new DailyPracticeLog();
+    this.practiceTracker = new PracticeTimeTracker(() => this.updatePracticeTimeDisplay());
     this.practiceTracker.onSegmentFlush = (ms) => this.dailyLog.addMs(ms);
     this.audio = new AudioEngine();
     this.audio.practiceTracker = this.practiceTracker;
@@ -2282,31 +2338,12 @@ class EarTrainingApp {
     this.progressEl.textContent = "Loading samples...";
     this.setControlsDisabled(true);
     this.updatePracticeTimeDisplay();
-    this.updateDailyGoalDisplay();
     void this.bootstrapSamples();
   }
 
-  updateDailyGoalDisplay() {
-    const todayMs = this.dailyLog.getTodayMs();
-    const streak = this.dailyLog.getStreak();
-    const todayMin = Math.floor(todayMs / 60000);
-    const goalMin = Math.floor(DAILY_GOAL_MS / 60000);
-    if (this.dailyGoalTextEl) {
-      this.dailyGoalTextEl.textContent = `Today ${todayMin} / ${goalMin} min · Streak ${streak}`;
-    }
-    if (!this.practiceHeatmapEl) return;
-    this.practiceHeatmapEl.innerHTML = "";
-    for (const cell of this.dailyLog.heatmapCells()) {
-      const el = document.createElement("span");
-      el.className = "heatmap-cell";
-      el.title = `${cell.key}: ${Math.round(cell.ms / 60000)} min`;
-      const ratio = Math.min(1, cell.ms / DAILY_GOAL_MS);
-      if (ratio >= 1) el.classList.add("level-4");
-      else if (ratio >= 0.75) el.classList.add("level-3");
-      else if (ratio >= 0.4) el.classList.add("level-2");
-      else if (ratio > 0) el.classList.add("level-1");
-      this.practiceHeatmapEl.appendChild(el);
-    }
+  updatePracticeTimeDisplay() {
+    if (!this.practiceTimeLinkEl) return;
+    this.practiceTimeLinkEl.textContent = `Practiced ${formatPracticeTime(this.practiceTracker.getTotalMs())}`;
   }
 
   onChordSetChange() {
@@ -2320,11 +2357,6 @@ class EarTrainingApp {
     const mode = this.modeEl.value;
     this.chordOptionsRow?.classList.toggle("hidden", mode !== "chords");
     this.intervalOptionsRow?.classList.toggle("hidden", mode !== "intervals");
-  }
-
-  updatePracticeTimeDisplay() {
-    if (!this.practiceTimeEl) return;
-    this.practiceTimeEl.textContent = `Practiced ${formatPracticeTime(this.practiceTracker.getTotalMs())}`;
   }
 
   updateModeHint() {

@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 20260531b -->
-  <link rel="stylesheet" href="styles.css?v=20260531b">
+  <!-- build: 20260531c -->
+  <link rel="stylesheet" href="styles.css?v=20260531c">
 </head>
 <body>
   <div class="app">
@@ -19,9 +19,7 @@
       </label>
       <h1>Ear Training</h1>
       <p id="subtitle" class="subtitle">Two beats · auto reveal</p>
-      <p id="practiceTime" class="practice-time">Practiced 0:00</p>
-      <p id="dailyGoalText" class="daily-goal-text">Today 0 / 10 min · Streak 0</p>
-      <div id="practiceHeatmap" class="practice-heatmap" aria-label="Practice heatmap"></div>
+      <p class="practice-time"><a id="practiceTimeLink" class="practice-link" href="stats.html">Practiced 0:00</a></p>
     </header>
 
     <section class="controls">
@@ -45,8 +43,11 @@
             <span class="field-label">Chord set</span>
             <select id="chordSet">
               <option value="c-major-triads">C major triads</option>
+              <option value="c-major-triads-inv">C major triads + inversions</option>
               <option value="a-minor-triads">A minor triads</option>
+              <option value="a-minor-triads-inv">A minor triads + inversions</option>
               <option value="c-major-7ths">C major 7ths</option>
+              <option value="c-major-7ths-inv">C major 7ths + inversions</option>
               <option value="progressions">Progressions</option>
             </select>
           </label>
@@ -131,7 +132,7 @@
   <script>
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=20260531b"></script>
+  <script src="app.js?v=20260531c"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
