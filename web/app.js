@@ -36,7 +36,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530j";
+const APP_VERSION = "20260530k";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -215,6 +215,16 @@ const MODE_SUBTITLES = {
 };
 
 const PRACTICE_TIME_STORAGE_KEY = "earTrainingPracticeMs";
+const ADAPTIVE_STATS_STORAGE_KEY = "earTrainingAdaptiveStats";
+
+const ADAPTIVE_BASE_WEIGHT = 1;
+const ADAPTIVE_MIN_WEIGHT = 1;
+const ADAPTIVE_MAX_WEIGHT = 8;
+const ADAPTIVE_WRONG_WEIGHT_ADD = 2;
+const ADAPTIVE_BOOST_QUESTIONS = 10;
+const ADAPTIVE_BOOST_MULTIPLIER = 4;
+const ADAPTIVE_STREAK_TO_REDUCE = 3;
+const ADAPTIVE_CORRECT_WEIGHT_REDUCE = 1;
 
 function answerRainbowClass(midi) {
   const pc = midi % 12;
@@ -223,6 +233,17 @@ function answerRainbowClass(midi) {
 
 function randomChoice(items) {
   return items[Math.floor(Math.random() * items.length)];
+}
+
+function weightedChoice(entries) {
+  const total = entries.reduce((sum, entry) => sum + entry.weight, 0);
+  if (total <= 0) return randomChoice(entries.map((entry) => entry.midi));
+  let roll = Math.random() * total;
+  for (const entry of entries) {
+    roll -= entry.weight;
+    if (roll <= 0) return entry.midi;
+  }
+  return entries[entries.length - 1].midi;
 }
 
 function formatPracticeTime(ms) {
@@ -326,6 +347,108 @@ class PracticeTimeTracker {
       this.persist();
     }
     this.onUpdate?.();
+  }
+}
+
+class AdaptiveLearning {
+  constructor(scopeKey) {
+    this.scopeKey = scopeKey;
+    this.noteStats = this.loadScopeStats();
+  }
+
+  loadAllStats() {
+    try {
+      const raw = localStorage.getItem(ADAPTIVE_STATS_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  loadScopeStats() {
+    const all = this.loadAllStats();
+    if (!all[this.scopeKey] || typeof all[this.scopeKey] !== "object") {
+      all[this.scopeKey] = {};
+    }
+    return all[this.scopeKey];
+  }
+
+  defaultNoteStats() {
+    return {
+      attempts: 0,
+      correct: 0,
+      streak: 0,
+      weight: ADAPTIVE_BASE_WEIGHT,
+      boostRemaining: 0,
+      totalResponseMs: 0,
+    };
+  }
+
+  ensureNote(midi) {
+    const key = String(midi);
+    if (!this.noteStats[key]) {
+      this.noteStats[key] = this.defaultNoteStats();
+    }
+    return this.noteStats[key];
+  }
+
+  persist() {
+    try {
+      const all = this.loadAllStats();
+      all[this.scopeKey] = this.noteStats;
+      localStorage.setItem(ADAPTIVE_STATS_STORAGE_KEY, JSON.stringify(all));
+    } catch {
+      // Ignore private mode storage errors.
+    }
+  }
+
+  tickQuestion() {
+    for (const key of Object.keys(this.noteStats)) {
+      const stats = this.noteStats[key];
+      if (stats.boostRemaining > 0) {
+        stats.boostRemaining -= 1;
+      }
+    }
+  }
+
+  weightFor(midi) {
+    const stats = this.ensureNote(midi);
+    let weight = stats.weight;
+    if (stats.boostRemaining > 0) {
+      weight *= ADAPTIVE_BOOST_MULTIPLIER;
+    }
+    return Math.max(0.01, weight);
+  }
+
+  pickNote(candidates) {
+    if (!candidates.length) return null;
+    this.tickQuestion();
+    const entries = candidates.map((midi) => ({
+      midi,
+      weight: this.weightFor(midi),
+    }));
+    return weightedChoice(entries);
+  }
+
+  recordAnswer(midi, isCorrect, responseMs) {
+    const stats = this.ensureNote(midi);
+    stats.attempts += 1;
+    stats.totalResponseMs += Math.max(0, responseMs);
+
+    if (isCorrect) {
+      stats.correct += 1;
+      stats.streak += 1;
+      if (stats.streak >= ADAPTIVE_STREAK_TO_REDUCE) {
+        stats.weight = Math.max(ADAPTIVE_MIN_WEIGHT, stats.weight - ADAPTIVE_CORRECT_WEIGHT_REDUCE);
+        stats.streak = 0;
+      }
+    } else {
+      stats.streak = 0;
+      stats.weight = Math.min(ADAPTIVE_MAX_WEIGHT, stats.weight + ADAPTIVE_WRONG_WEIGHT_ADD);
+      stats.boostRemaining = ADAPTIVE_BOOST_QUESTIONS;
+    }
+
+    this.persist();
   }
 }
 
@@ -1884,6 +2007,12 @@ class EarTrainingApp {
     return solfegeDisplay(midi);
   }
 
+  adaptiveScopeKey(notes) {
+    const min = Math.min(...notes);
+    const max = Math.max(...notes);
+    return `${this.modeEl.value}:${min}-${max}`;
+  }
+
   getKeyboardRange() {
     if (this.isBassMode()) return BASS_RANGE;
     return this.getPreset();
@@ -2336,12 +2465,14 @@ class EarTrainingApp {
 
   async startInteractiveSession({ numNotes, beatSec, notes, withReferenceA = false }) {
     let correctCount = 0;
+    const adaptive = new AdaptiveLearning(this.adaptiveScopeKey(notes));
     await this.audio.ensurePlayback();
 
     for (let i = 0; i < numNotes; i += 1) {
       if (!this.running) break;
 
-      const targetMidi = randomChoice(notes);
+      const targetMidi = adaptive.pickNote(notes);
+      if (targetMidi == null) break;
       const index = i + 1;
       const playRef = withReferenceA && i === 0;
       const refLead = playRef ? REFERENCE_A_SEC + REFERENCE_A_GAP_SEC : 0;
@@ -2370,11 +2501,13 @@ class EarTrainingApp {
       this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
       this.maybeClick(questionEnd);
 
+      const tapStartedAt = performance.now();
       const pressedMidi = await this.waitForKeyPress();
       if (!this.running || pressedMidi === null) break;
 
       const isCorrect = pressedMidi === targetMidi;
       if (isCorrect) correctCount += 1;
+      adaptive.recordAnswer(targetMidi, isCorrect, performance.now() - tapStartedAt);
 
       this.keyboard.markAnswer(pressedMidi, targetMidi);
       const answerAt = Math.max(questionEnd, this.audio.ctx.currentTime + 0.02);
