@@ -6,6 +6,30 @@ const RANGE_PRESETS = {
 
 const BASS_RANGE = { start: 28, end: 48, label: "Bass E1-C3" };
 
+const C_MAJOR_TRIADS = [
+  { id: "C", label: "C", midis: [48, 52, 55] },
+  { id: "Dm", label: "Dm", midis: [50, 53, 57] },
+  { id: "Em", label: "Em", midis: [52, 55, 59] },
+  { id: "F", label: "F", midis: [53, 57, 60] },
+  { id: "G", label: "G", midis: [55, 59, 62] },
+  { id: "Am", label: "Am", midis: [57, 60, 64] },
+  { id: "Bdim", label: "B°", midis: [59, 62, 65] },
+];
+
+const CHORD_NOTE_GAIN = 0.58;
+
+function getChordPreloadMidis() {
+  const midis = new Set();
+  for (const triad of C_MAJOR_TRIADS) {
+    for (const midi of triad.midis) midis.add(midi);
+  }
+  return [...midis].sort((a, b) => a - b);
+}
+
+function getTriadById(id) {
+  return C_MAJOR_TRIADS.find((triad) => triad.id === id) ?? null;
+}
+
 const REFERENCE_A_SEC = 1.0;
 const REFERENCE_A_GAP_SEC = 0.1;
 const REFERENCE_A_GAIN = 0.42;
@@ -36,7 +60,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260530k";
+const APP_VERSION = "20260530l";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -212,6 +236,7 @@ const MODE_SUBTITLES = {
   passive: "Two beats · auto reveal",
   interactive: "A440 · one beat · tap to answer",
   bass: "Low bass · A440 · tap to answer",
+  chords: "C major triads · tap to answer",
 };
 
 const PRACTICE_TIME_STORAGE_KEY = "earTrainingPracticeMs";
@@ -1562,6 +1587,17 @@ class AudioEngine {
     this.scheduleNoteBuffer(buffer, midi, when, durationSec, gain);
   }
 
+  scheduleChord(midis, when, durationSec, gain = 1) {
+    for (const midi of midis) {
+      this.scheduleNote(midi, when, durationSec, gain * CHORD_NOTE_GAIN);
+    }
+  }
+
+  chordNow(midis, durationSec, gain = 1) {
+    if (!this.ctx) return;
+    this.scheduleChord(midis, this.ctx.currentTime, durationSec, gain);
+  }
+
   scheduleNoteBuffer(buffer, midi, when, durationSec, gain = 1) {
     const trimmed = this.getTrimmedNoteBuffer(midi, durationSec);
     this.playBuffer(trimmed, when, {
@@ -1895,6 +1931,66 @@ class PianoKeyboard {
   }
 }
 
+class ChordPad {
+  constructor(root, triads) {
+    this.root = root;
+    this.triads = triads;
+    this.buttonElements = new Map();
+    this.interactive = false;
+    this.onPress = null;
+    this.build();
+  }
+
+  destroy() {
+    this.root.innerHTML = "";
+    this.buttonElements.clear();
+  }
+
+  build() {
+    this.root.innerHTML = "";
+    this.root.className = "chord-pad";
+    for (const triad of this.triads) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "chord-btn";
+      button.textContent = triad.label;
+      button.dataset.chordId = triad.id;
+      button.addEventListener("click", () => {
+        if (this.interactive && this.onPress) this.onPress(triad.id);
+      });
+      this.root.appendChild(button);
+      this.buttonElements.set(triad.id, button);
+    }
+  }
+
+  setInteractive(enabled, onPress = null) {
+    this.interactive = enabled;
+    this.onPress = onPress;
+    this.root.classList.toggle("interactive", enabled);
+    for (const button of this.buttonElements.values()) {
+      button.disabled = !enabled;
+    }
+  }
+
+  clearFeedback() {
+    for (const button of this.buttonElements.values()) {
+      button.classList.remove("correct", "wrong", "reveal");
+    }
+  }
+
+  markAnswer(pressedId, targetId) {
+    this.clearFeedback();
+    const pressedButton = this.buttonElements.get(pressedId);
+    const targetButton = this.buttonElements.get(targetId);
+    if (pressedId === targetId) {
+      pressedButton?.classList.add("correct");
+      return;
+    }
+    pressedButton?.classList.add("wrong");
+    targetButton?.classList.add("reveal");
+  }
+}
+
 function instrumentLabelFromSampleUrl(url) {
   if (/\/samples\/piano\//i.test(url)) return INSTRUMENTS.piano.label;
   for (const [id, config] of Object.entries(INSTRUMENTS)) {
@@ -1909,7 +2005,7 @@ function instrumentLabelFromSampleUrl(url) {
 function getBootstrapNotes() {
   const advanced = diatonicNotes(RANGE_PRESETS.advanced.start, RANGE_PRESETS.advanced.end);
   const bass = diatonicNotes(BASS_RANGE.start, BASS_RANGE.end);
-  const merged = new Set([...advanced, ...bass]);
+  const merged = new Set([...advanced, ...bass, ...getChordPreloadMidis()]);
   return [...merged].sort((a, b) => a - b);
 }
 
@@ -1976,12 +2072,14 @@ class EarTrainingApp {
 
   onModeChange() {
     const bass = this.isBassMode();
+    const chords = this.isChordMode();
     if (this.instrumentEl) {
-      this.instrumentEl.disabled = bass;
+      this.instrumentEl.disabled = bass || chords;
       if (bass) this.instrumentEl.value = "bass";
+      if (chords) this.instrumentEl.value = "piano";
     }
     if (this.levelEl) {
-      this.levelEl.disabled = bass;
+      this.levelEl.disabled = bass || chords;
     }
     this.updateModeHint();
     this.resetKeyboard();
@@ -1991,8 +2089,12 @@ class EarTrainingApp {
     return this.modeEl.value === "bass";
   }
 
+  isChordMode() {
+    return this.modeEl.value === "chords";
+  }
+
   isInteractiveMode() {
-    return this.modeEl.value === "interactive" || this.isBassMode();
+    return this.modeEl.value === "interactive" || this.isBassMode() || this.isChordMode();
   }
 
   usesReferenceA() {
@@ -2000,7 +2102,7 @@ class EarTrainingApp {
   }
 
   usesSolfege() {
-    return !this.isBassMode();
+    return !this.isBassMode() && !this.isChordMode();
   }
 
   answerDisplay(midi) {
@@ -2019,11 +2121,20 @@ class EarTrainingApp {
   }
 
   getSessionNotes() {
+    if (this.isChordMode()) {
+      return getChordPreloadMidis();
+    }
     if (this.isBassMode()) {
       return diatonicNotes(BASS_RANGE.start, BASS_RANGE.end);
     }
     const preset = this.getPreset();
     return diatonicNotes(preset.start, preset.end);
+  }
+
+  getSessionInstrumentId() {
+    if (this.isBassMode()) return "bass";
+    if (this.isChordMode()) return "piano";
+    return this.instrumentEl.value;
   }
 
   async playReferenceA() {
@@ -2035,8 +2146,19 @@ class EarTrainingApp {
   async replayCurrentQuestion() {
     if (!this.running || !this.currentQuestion) return;
     await this.ensureAudioReadyForControls();
-    const { midi, beatSec } = this.currentQuestion;
-    this.audio.scheduleNote(midi, this.audio.ctx.currentTime + 0.02, beatSec, this.audio.noteBeat1Gain);
+    const { beatSec } = this.currentQuestion;
+    const when = this.audio.ctx.currentTime + 0.02;
+    if (this.currentQuestion.chord) {
+      this.audio.scheduleChord(
+        this.currentQuestion.chord.midis,
+        when,
+        beatSec,
+        this.audio.noteBeat1Gain
+      );
+      return;
+    }
+    const { midi } = this.currentQuestion;
+    this.audio.scheduleNote(midi, when, beatSec, this.audio.noteBeat1Gain);
   }
 
   async ensureAudioReadyForControls() {
@@ -2181,8 +2303,13 @@ class EarTrainingApp {
 
   resetKeyboard() {
     this.keyboard?.destroy();
-    const range = this.getKeyboardRange();
-    this.keyboard = new PianoKeyboard(this.keyboardEl, range.start, range.end);
+    if (this.isChordMode()) {
+      this.keyboard = new ChordPad(this.keyboardEl, C_MAJOR_TRIADS);
+    } else {
+      this.keyboardEl.className = "piano-keyboard";
+      const range = this.getKeyboardRange();
+      this.keyboard = new PianoKeyboard(this.keyboardEl, range.start, range.end);
+    }
     this.keyboard.setInteractive(false);
   }
 
@@ -2326,12 +2453,13 @@ class EarTrainingApp {
   setControlsDisabled(disabled) {
     const settingsLocked = disabled || !this.samplesReady;
     const bass = this.isBassMode();
+    const chords = this.isChordMode();
     this.startBtn.disabled = disabled || !this.samplesReady;
     this.stopBtn.disabled = !disabled;
     this.modeEl.disabled = settingsLocked;
     this.metronomeEl.disabled = settingsLocked;
-    this.instrumentEl.disabled = settingsLocked || bass;
-    this.levelEl.disabled = settingsLocked || bass;
+    this.instrumentEl.disabled = settingsLocked || bass || chords;
+    this.levelEl.disabled = settingsLocked || bass || chords;
     this.bpmEl.disabled = settingsLocked;
     this.numNotesEl.disabled = settingsLocked;
     if (this.refABtn) this.refABtn.disabled = !this.samplesReady;
@@ -2369,7 +2497,7 @@ class EarTrainingApp {
   async prepareSession(notes, beatSec) {
     if (!this.audio.ctx) await this.audio.init();
     await this.audio.ensurePlayback();
-    await this.audio.setInstrument(this.isBassMode() ? "bass" : this.instrumentEl.value);
+    await this.audio.setInstrument(this.getSessionInstrumentId());
 
     this.audio.cancelPendingLoads();
     this.audio.cancelWarmPreload();
@@ -2536,6 +2664,72 @@ class EarTrainingApp {
     this.stop();
   }
 
+  async startChordSession({ numNotes, beatSec }) {
+    let correctCount = 0;
+    const chordIds = C_MAJOR_TRIADS.map((triad) => triad.id);
+    const adaptive = new AdaptiveLearning("chords:c-major");
+    await this.audio.ensurePlayback();
+
+    for (let i = 0; i < numNotes; i += 1) {
+      if (!this.running) break;
+
+      const targetId = adaptive.pickNote(chordIds);
+      const targetChord = getTriadById(targetId);
+      if (!targetChord) break;
+
+      const index = i + 1;
+      const base = this.audio.ctx.currentTime + 0.05;
+      const questionStart = base;
+      const questionEnd = questionStart + beatSec;
+
+      this.currentQuestion = { chord: targetChord, beatSec };
+      this.updateAuxControls();
+
+      this.setDisplay("?", "question");
+      this.keyboard.clearFeedback();
+
+      this.progressEl.textContent = `${index}/${numNotes} · listen · ${correctCount}`;
+      this.maybeClick(questionStart);
+      this.audio.scheduleChord(targetChord.midis, questionStart, beatSec, this.audio.noteBeat1Gain);
+      if (!(await this.waitUntilAudio(questionEnd))) break;
+
+      this.setDisplay("Tap", "tap");
+      this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
+      this.maybeClick(questionEnd);
+
+      const tapStartedAt = performance.now();
+      const pressedId = await this.waitForKeyPress();
+      if (!this.running || pressedId === null) break;
+
+      const isCorrect = pressedId === targetChord.id;
+      if (isCorrect) correctCount += 1;
+      adaptive.recordAnswer(targetChord.id, isCorrect, performance.now() - tapStartedAt);
+
+      this.keyboard.markAnswer(pressedId, targetChord.id);
+      const answerAt = Math.max(questionEnd, this.audio.ctx.currentTime + 0.02);
+      const pressedLabel = getTriadById(pressedId)?.label ?? pressedId;
+      if (isCorrect) {
+        this.setDisplay(targetChord.label, "correct", null, { mark: "✓" });
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
+      } else {
+        this.setDisplay(targetChord.label, "wrong", null, { mark: "×" });
+        this.progressEl.textContent =
+          `${index}/${numNotes} · ${pressedLabel} → ${targetChord.label} · ${correctCount}/${index}`;
+      }
+
+      this.maybeClick(answerAt);
+      this.audio.scheduleChord(targetChord.midis, answerAt, beatSec, this.audio.noteAnswerGain);
+      if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
+    }
+
+    if (!this.running) return;
+
+    const accuracy = numNotes ? Math.round((correctCount / numNotes) * 100) : 0;
+    this.setDisplay("Done", "answer");
+    this.progressEl.textContent = `${correctCount}/${numNotes} (${accuracy}%)`;
+    this.stop();
+  }
+
   async start() {
     if (this.running || !this.samplesReady) return;
 
@@ -2563,7 +2757,9 @@ class EarTrainingApp {
       const beatSec = 60 / bpm;
       await this.prepareSession(notes, beatSec);
 
-      if (this.isInteractiveMode()) {
+      if (this.isChordMode()) {
+        await this.startChordSession({ numNotes, beatSec });
+      } else if (this.isInteractiveMode()) {
         await this.startInteractiveSession({
           numNotes,
           beatSec,

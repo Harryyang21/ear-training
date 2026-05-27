@@ -1,4 +1,4 @@
-const CACHE = "ear-training-20260530k";
+const CACHE = "ear-training-20260530l";
 const SHELL = ["index.html", "app.js", "styles.css", "sw.js"];
 
 self.addEventListener("install", (event) => {
