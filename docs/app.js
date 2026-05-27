@@ -235,7 +235,8 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "2.1.1";
+const APP_VERSION = "2.1.2";
+const ANSWER_REVIEW_MS = 4500;
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -329,17 +330,32 @@ function noteLabel(midi) {
   return `${names[midi % 12]}${octave}`;
 }
 
-function solfegeDisplay(midi) {
+function solfegeSyllable(midi) {
   const syllable = SYLLABLE[midi % 12];
-  return SYLLABLE_DISPLAY[syllable] || "?";
+  return SYLLABLE_DISPLAY[syllable] ?? null;
+}
+
+function pitchDisplay(midi) {
+  const pc = midi % 12;
+  const sol = solfegeSyllable(midi);
+  if (DIATONIC.has(pc) && sol) return sol;
+  const sharpNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const flatNames = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+  const preferFlat = pc === 1 || pc === 3 || pc === 6 || pc === 8 || pc === 10;
+  const name = preferFlat ? flatNames[pc] : sharpNames[pc];
+  return `${name}${Math.floor(midi / 12) - 1}`;
+}
+
+function solfegeDisplay(midi) {
+  return pitchDisplay(midi);
 }
 
 function solfegeList(midis) {
-  return midis.map((midi) => solfegeDisplay(midi)).join(" · ");
+  return midis.map((midi) => pitchDisplay(midi)).join(" · ");
 }
 
 function formatMelodyAnswer(melody) {
-  return melody.map((midi) => solfegeDisplay(midi)).join(" · ");
+  return melody.map((midi) => pitchDisplay(midi)).join(" · ");
 }
 
 function formatChordAnswerDetail(item, chordMap) {
@@ -356,7 +372,7 @@ function formatChordAnswerDetail(item, chordMap) {
 }
 
 function formatIntervalAnswerDetail(lowMidi, highMidi) {
-  return `${solfegeDisplay(lowMidi)} · ${solfegeDisplay(highMidi)}`;
+  return `${pitchDisplay(lowMidi)} · ${pitchDisplay(highMidi)}`;
 }
 
 function diatonicNotes(start, end) {
@@ -2133,7 +2149,7 @@ class PianoKeyboard {
     this.pendingTap = null;
     this.scrollGateUntil = 0;
     this.lastScrollLeft = 0;
-    this.tapMoveThreshold = 10;
+    this.tapMoveThreshold = 14;
     this.onScrollGuard = this.onScrollGuard.bind(this);
     this.onPointerMove = this.onPointerMove.bind(this);
     this.onPointerCancel = this.onPointerCancel.bind(this);
@@ -2145,6 +2161,14 @@ class PianoKeyboard {
         passive: true,
         signal: this.abortController.signal,
       });
+      this.scrollWrap.addEventListener(
+        "touchmove",
+        () => {
+          this.pendingTap = null;
+          this.scrollGateUntil = Date.now() + 320;
+        },
+        { passive: true, signal: this.abortController.signal }
+      );
     }
   }
 
@@ -2219,10 +2243,9 @@ class PianoKeyboard {
       "pointerdown",
       (event) => {
         if (event.pointerType === "mouse" && event.button !== 0) return;
-        if (!this.interactive && this.onPreview) {
-          this.onPreview(midi);
-        }
-        if (!this.interactive || !this.onKeyPress) return;
+        const canPreview = !this.interactive && this.onPreview;
+        const canAnswer = this.interactive && this.onKeyPress;
+        if (!canPreview && !canAnswer) return;
 
         if (key.setPointerCapture) {
           try {
@@ -2240,14 +2263,15 @@ class PianoKeyboard {
           startedAt: Date.now(),
           scrollLeft: this.scrollWrap?.scrollLeft ?? 0,
           target: key,
+          preview: canPreview,
+          answer: canAnswer,
         };
       },
       { passive: true }
     );
 
     key.addEventListener("pointerup", (event) => {
-      if (!this.interactive || !this.onKeyPress || !this.pendingTap) return;
-      if (event.pointerId !== this.pendingTap.pointerId) return;
+      if (!this.pendingTap || event.pointerId !== this.pendingTap.pointerId) return;
       if (this.pendingTap.midi !== midi) return;
 
       const dx = event.clientX - this.pendingTap.x;
@@ -2264,7 +2288,11 @@ class PianoKeyboard {
       if (elapsed > 450) return;
 
       event.preventDefault();
-      this.onKeyPress(midi);
+      if (tap.answer && this.interactive && this.onKeyPress) {
+        this.onKeyPress(midi);
+      } else if (tap.preview && this.onPreview) {
+        this.onPreview(midi);
+      }
     });
 
     key.addEventListener("pointercancel", this.onPointerCancel);
@@ -2465,13 +2493,34 @@ class ChordPad {
       if (item.hint) {
         button.title = item.hint;
       }
-      button.addEventListener("click", () => {
+      let pendingTap = null;
+      button.addEventListener(
+        "pointerdown",
+        (event) => {
+          if (event.pointerType === "mouse" && event.button !== 0) return;
+          pendingTap = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+          };
+        },
+        { passive: true }
+      );
+      button.addEventListener("pointerup", (event) => {
+        if (!pendingTap || pendingTap.pointerId !== event.pointerId) return;
+        const dx = event.clientX - pendingTap.x;
+        const dy = event.clientY - pendingTap.y;
+        pendingTap = null;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return;
         if (this.previewHandler) {
           this.previewHandler(item);
         }
         if (this.interactive && this.onPress) {
           this.onPress(item.id);
         }
+      });
+      button.addEventListener("pointercancel", () => {
+        pendingTap = null;
       });
       this.root.appendChild(button);
       this.buttonElements.set(item.id, button);
@@ -2577,10 +2626,15 @@ class EarTrainingApp {
     this.refABtn = document.getElementById("refABtn");
     this.replayBtn = document.getElementById("replayBtn");
     this.pauseBtn = document.getElementById("pauseBtn");
+    this.nextBtn = document.getElementById("nextBtn");
+    this.inAnswerReview = false;
+    this.answerReviewResolve = null;
+    this.answerReviewTimer = null;
 
     this.startBtn.addEventListener("click", () => this.start());
     this.stopBtn.addEventListener("click", () => this.stop());
     this.pauseBtn?.addEventListener("click", () => this.togglePause());
+    this.nextBtn?.addEventListener("click", () => this.finishAnswerReview());
     this.refABtn?.addEventListener("click", () => this.playReferenceA());
     this.replayBtn?.addEventListener("click", () => this.replayCurrentQuestion());
     this.levelEl.addEventListener("change", () => this.resetKeyboard());
@@ -2668,6 +2722,39 @@ class EarTrainingApp {
     this.paused = false;
     if (this.pauseBtn) this.pauseBtn.textContent = "Pause";
     this.setStatus("");
+  }
+
+  async waitForAnswerReview() {
+    this.inAnswerReview = true;
+    this.updateAuxControls();
+    if (this.nextBtn) {
+      this.nextBtn.classList.remove("hidden");
+      this.nextBtn.disabled = false;
+    }
+
+    return new Promise((resolve) => {
+      this.answerReviewResolve = resolve;
+      this.answerReviewTimer = window.setTimeout(() => {
+        this.finishAnswerReview();
+      }, ANSWER_REVIEW_MS);
+    });
+  }
+
+  finishAnswerReview() {
+    if (this.answerReviewTimer != null) {
+      window.clearTimeout(this.answerReviewTimer);
+      this.answerReviewTimer = null;
+    }
+    if (this.nextBtn) {
+      this.nextBtn.classList.add("hidden");
+      this.nextBtn.disabled = true;
+    }
+    this.inAnswerReview = false;
+    if (this.answerReviewResolve) {
+      const done = this.answerReviewResolve;
+      this.answerReviewResolve = null;
+      done(this.running);
+    }
   }
 
   onChordSetChange() {
@@ -3217,12 +3304,6 @@ class EarTrainingApp {
     if (this.pauseBtn) this.pauseBtn.disabled = !disabled;
   }
 
-  updateAuxControls() {
-    if (this.refABtn) this.refABtn.disabled = !this.samplesReady;
-    if (this.replayBtn) this.replayBtn.disabled = !this.running || !this.currentQuestion;
-    if (this.pauseBtn) this.pauseBtn.disabled = !this.running;
-  }
-
   stop() {
     this.running = false;
     this.paused = false;
@@ -3233,6 +3314,7 @@ class EarTrainingApp {
     this.audio.stopPlaybackKeepalive();
     this.audio.stopBackgroundMode();
     this.clearSchedules();
+    this.finishAnswerReview();
     this.setDisplay("?", "question");
     if (this.detailDisplayEl) {
       this.detailDisplayEl.textContent = "";
@@ -3414,6 +3496,7 @@ class EarTrainingApp {
         this.audio.scheduleSolfege(targetMidi, answerAt, beatSec);
       }
       if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
+      if (!(await this.waitForAnswerReview())) break;
     }
 
     if (!this.running) return;
@@ -3498,6 +3581,7 @@ class EarTrainingApp {
       }
 
       this.maybeClick(answerAt);
+      let answerEnd = answerAt + beatSec;
       if (type === "progression") {
         this.audio.scheduleProgression(
           chordMap,
@@ -3506,11 +3590,12 @@ class EarTrainingApp {
           beatSec,
           this.audio.noteAnswerGain
         );
-        if (!(await this.waitUntilAudio(answerAt + targetItem.chordIds.length * beatSec))) break;
+        answerEnd = answerAt + targetItem.chordIds.length * beatSec;
       } else {
         this.audio.scheduleChord(targetItem.midis, answerAt, beatSec, this.audio.noteAnswerGain);
-        if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
       }
+      if (!(await this.waitUntilAudio(answerEnd))) break;
+      if (!(await this.waitForAnswerReview())) break;
     }
 
     if (!this.running) return;
@@ -3606,6 +3691,7 @@ class EarTrainingApp {
         this.audio.noteAnswerGain
       );
       if (!(await this.waitUntilAudio(answerAt + listenDur))) break;
+      if (!(await this.waitForAnswerReview())) break;
     }
 
     if (!this.running) return;
@@ -3673,6 +3759,7 @@ class EarTrainingApp {
       this.maybeClick(answerAt);
       this.audio.scheduleMelody(melody, answerAt, beatSec, this.audio.noteAnswerGain);
       if (!(await this.waitUntilAudio(answerAt + melody.length * beatSec))) break;
+      if (!(await this.waitForAnswerReview())) break;
     }
 
     if (!this.running) return;

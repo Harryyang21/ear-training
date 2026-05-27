@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 2.1.1 -->
-  <link rel="stylesheet" href="styles.css?v=2.1.1">
+  <!-- build: 2.1.2 -->
+  <link rel="stylesheet" href="styles.css?v=2.1.2">
 </head>
 <body>
   <div class="app">
@@ -106,6 +106,7 @@
           <div id="noteDisplay" class="note-display">?</div>
           <div id="detailDisplay" class="detail-display" hidden></div>
           <div id="progress" class="progress">Loading samples...</div>
+          <button id="nextBtn" class="review-next hidden" type="button">Next →</button>
         </div>
       </div>
 
@@ -137,7 +138,7 @@
   <script>
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=2.1.1"></script>
+  <script src="app.js?v=2.1.2"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
