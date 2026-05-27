@@ -235,8 +235,15 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "2.1.3";
-const ANSWER_REVIEW_MS = 4500;
+const APP_VERSION = "2.1.4";
+const ANSWER_REVIEW_PAD_MS = 700;
+const ANSWER_REVIEW_MIN_MS = 1800;
+const ANSWER_REVIEW_MAX_MS = 12000;
+
+function answerReviewMs(beatSec, noteCount) {
+  const playMs = Math.max(1, noteCount) * beatSec * 1000;
+  return Math.min(ANSWER_REVIEW_MAX_MS, Math.max(ANSWER_REVIEW_MIN_MS, playMs + ANSWER_REVIEW_PAD_MS));
+}
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -2512,11 +2519,12 @@ class ChordPad {
         const dy = event.clientY - pendingTap.y;
         pendingTap = null;
         if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return;
-        if (this.previewHandler) {
-          this.previewHandler(item);
-        }
         if (this.interactive && this.onPress) {
           this.onPress(item.id);
+          return;
+        }
+        if (this.previewHandler) {
+          this.previewHandler(item);
         }
       });
       button.addEventListener("pointercancel", () => {
@@ -2724,7 +2732,7 @@ class EarTrainingApp {
     this.setStatus("");
   }
 
-  async waitForAnswerReview() {
+  async waitForAnswerReview(reviewMs = ANSWER_REVIEW_MIN_MS) {
     this.inAnswerReview = true;
     this.updateAuxControls();
     if (this.nextBtn) {
@@ -2736,7 +2744,7 @@ class EarTrainingApp {
       this.answerReviewResolve = resolve;
       this.answerReviewTimer = window.setTimeout(() => {
         this.finishAnswerReview();
-      }, ANSWER_REVIEW_MS);
+      }, reviewMs);
     });
   }
 
@@ -3258,7 +3266,6 @@ class EarTrainingApp {
       this.interactiveResolve = resolve;
       this.keyboard?.setInteractive(true, (value) => {
         if (!this.running || !this.interactiveResolve || this.paused) return;
-        if (this.keyboard === this.piano) void this.previewNote(value);
         this.keyboard?.setInteractive(false);
         const done = this.interactiveResolve;
         this.interactiveResolve = null;
@@ -3503,7 +3510,7 @@ class EarTrainingApp {
         this.audio.scheduleSolfege(targetMidi, answerAt, beatSec);
       }
       if (!(await this.waitUntilAudio(answerAt + beatSec))) break;
-      if (!(await this.waitForAnswerReview())) break;
+      if (!(await this.waitForAnswerReview(answerReviewMs(beatSec, 1)))) break;
     }
 
     if (!this.running) return;
@@ -3601,8 +3608,9 @@ class EarTrainingApp {
       } else {
         this.audio.scheduleChord(targetItem.midis, answerAt, beatSec, this.audio.noteAnswerGain);
       }
+      const answerNoteCount = type === "progression" ? targetItem.chordIds.length : 1;
       if (!(await this.waitUntilAudio(answerEnd))) break;
-      if (!(await this.waitForAnswerReview())) break;
+      if (!(await this.waitForAnswerReview(answerReviewMs(beatSec, answerNoteCount)))) break;
     }
 
     if (!this.running) return;
@@ -3697,8 +3705,9 @@ class EarTrainingApp {
         style,
         this.audio.noteAnswerGain
       );
+      const answerNoteCount = style === "melodic" ? 2 : 1;
       if (!(await this.waitUntilAudio(answerAt + listenDur))) break;
-      if (!(await this.waitForAnswerReview())) break;
+      if (!(await this.waitForAnswerReview(answerReviewMs(beatSec, answerNoteCount)))) break;
     }
 
     if (!this.running) return;
@@ -3766,7 +3775,7 @@ class EarTrainingApp {
       this.maybeClick(answerAt);
       this.audio.scheduleMelody(melody, answerAt, beatSec, this.audio.noteAnswerGain);
       if (!(await this.waitUntilAudio(answerAt + melody.length * beatSec))) break;
-      if (!(await this.waitForAnswerReview())) break;
+      if (!(await this.waitForAnswerReview(answerReviewMs(beatSec, melody.length)))) break;
     }
 
     if (!this.running) return;
@@ -3837,6 +3846,20 @@ function disablePageZoom() {
   document.addEventListener("gesturestart", blockGesture, { passive: false });
   document.addEventListener("gesturechange", blockGesture, { passive: false });
   document.addEventListener("gestureend", blockGesture, { passive: false });
+  document.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.ctrlKey) event.preventDefault();
+    },
+    { passive: false }
+  );
+  document.addEventListener(
+    "touchmove",
+    (event) => {
+      if (event.touches.length > 1) event.preventDefault();
+    },
+    { passive: false }
+  );
 }
 
 disablePageZoom();

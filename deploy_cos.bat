@@ -1,9 +1,9 @@
 @echo off
 cd /d "%~dp0"
-echo Building site (docs/)...
-python tools\prepare_github_pages.py
+echo Syncing web/ to docs/...
+powershell -ExecutionPolicy Bypass -File tools\sync_web_to_docs.ps1
 if errorlevel 1 (
-  echo Build failed.
+  echo Sync failed.
   pause
   exit /b 1
 )

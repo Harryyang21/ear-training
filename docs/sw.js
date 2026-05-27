@@ -1,5 +1,5 @@
-const CACHE = "ear-training-2.1.3";
-const SHELL = ["index.html", "stats.html", "app.js", "stats.js", "styles.css", "sw.js"];
+const CACHE = "ear-training-2.1.4";
+const SHELL = ["index.html", "stats.html", "app.js", "stats.js", "styles.css"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -30,9 +30,12 @@ function isShellRequest(url) {
     url.pathname.endsWith("/stats.js") ||
     url.pathname.endsWith("/styles.css") ||
     url.pathname.endsWith("/index.html") ||
-    url.pathname.endsWith("/stats.html") ||
-    url.pathname.endsWith("/sw.js")
+    url.pathname.endsWith("/stats.html")
   );
+}
+
+function isServiceWorkerRequest(url) {
+  return url.pathname.endsWith("/sw.js");
 }
 
 async function matchCached(cache, request) {
@@ -45,22 +48,47 @@ async function matchCached(cache, request) {
   return alt ? cache.match(alt) : null;
 }
 
+async function networkFirstShell(cache, request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await matchCached(cache, request);
+    if (cached) return cached;
+    throw new Error("offline");
+  }
+}
+
+async function cacheFirstSample(cache, request) {
+  const cached = await matchCached(cache, request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response.ok) {
+    cache.put(request, response.clone());
+  }
+  return response;
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
-  if (!isSampleRequest(url) && !isShellRequest(url)) return;
 
-  event.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const cached = await matchCached(cache, event.request);
-      if (cached) return cached;
+  if (isServiceWorkerRequest(url)) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
-      const response = await fetch(event.request);
-      if (response.ok) {
-        cache.put(event.request, response.clone());
-      }
-      return response;
-    })
-  );
+  if (isSampleRequest(url)) {
+    event.respondWith(caches.open(CACHE).then((cache) => cacheFirstSample(cache, event.request)));
+    return;
+  }
+
+  if (isShellRequest(url)) {
+    event.respondWith(caches.open(CACHE).then((cache) => networkFirstShell(cache, event.request)));
+  }
 });
