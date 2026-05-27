@@ -211,7 +211,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260531d";
+const APP_VERSION = "20260531e";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -1013,6 +1013,9 @@ const HARMONIC_FADE_IN_SEC = 0.01;
 const INSTRUMENT_PEAK_LIMIT = 0.88;
 const INSTRUMENT_ATTACK_FADE_MS = 6;
 const OUTPUT_MAKEUP_GAIN = 1.14;
+const OUTPUT_LIMITER_THRESHOLD = -8;
+const OUTPUT_LIMITER_RATIO = 20;
+const OUTPUT_LIMITER_RELEASE = 0.028;
 const SOLFEGE_GAIN = 0.58;
 // Match ear_training.py METRONOME_VOLUME_DB = -20
 const METRONOME_GAIN = 0.1;
@@ -1094,11 +1097,11 @@ class AudioEngine {
 
   connectOutputChain() {
     this.compressor = this.ctx.createDynamicsCompressor();
-    this.compressor.threshold.value = -22;
-    this.compressor.knee.value = 10;
-    this.compressor.ratio.value = 12;
-    this.compressor.attack.value = 0.002;
-    this.compressor.release.value = 0.1;
+    this.compressor.threshold.value = OUTPUT_LIMITER_THRESHOLD;
+    this.compressor.knee.value = 0;
+    this.compressor.ratio.value = OUTPUT_LIMITER_RATIO;
+    this.compressor.attack.value = 0.001;
+    this.compressor.release.value = OUTPUT_LIMITER_RELEASE;
 
     this.outputGain = this.ctx.createGain();
     this.outputGain.gain.value = OUTPUT_MAKEUP_GAIN;
@@ -1174,35 +1177,40 @@ class AudioEngine {
     const sampleRate = buffer.sampleRate;
     const durationMs = wallDurationSec * 1000;
     const fadeMs = Math.min(maxFadeMs, Math.max(1, durationMs / fadeDivisor));
-    const totalSamples = Math.min(
-      buffer.length,
-      Math.ceil(wallDurationSec * playbackRate * sampleRate)
+    const targetSamples = Math.max(
+      1,
+      Math.round(wallDurationSec * playbackRate * sampleRate)
     );
     const fadeSamples = Math.min(
-      totalSamples,
+      targetSamples,
       Math.max(1, Math.round((fadeMs / 1000) * sampleRate * playbackRate))
     );
     const attackSamples =
       attackFadeMs > 0
         ? Math.min(
-            totalSamples,
+            targetSamples,
             Math.max(1, Math.round((attackFadeMs / 1000) * sampleRate * playbackRate))
           )
         : 0;
-    const fadeStart = totalSamples - fadeSamples;
-    const trimmed = this.ctx.createBuffer(buffer.numberOfChannels, totalSamples, sampleRate);
+    const fadeStart = Math.max(attackSamples, targetSamples - fadeSamples);
+    const trimmed = this.ctx.createBuffer(buffer.numberOfChannels, targetSamples, sampleRate);
 
     for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
       const source = buffer.getChannelData(channel);
       const target = trimmed.getChannelData(channel);
-      for (let i = 0; i < totalSamples; i += 1) {
+      for (let i = 0; i < targetSamples; i += 1) {
+        const sample = i < source.length ? source[i] : 0;
         let gain = 1;
         if (attackSamples > 0 && i < attackSamples) {
           gain = (i + 1) / attackSamples;
         } else if (i >= fadeStart) {
-          gain = (totalSamples - i) / fadeSamples;
+          const fadeDenom = Math.max(1, targetSamples - 1 - fadeStart);
+          gain = Math.max(0, (targetSamples - 1 - i) / fadeDenom);
         }
-        target[i] = source[i] * gain;
+        target[i] = sample * gain;
+      }
+      if (targetSamples > 0) {
+        target[targetSamples - 1] = 0;
       }
     }
 
@@ -1210,7 +1218,7 @@ class AudioEngine {
       let peak = 0;
       for (let channel = 0; channel < trimmed.numberOfChannels; channel += 1) {
         const data = trimmed.getChannelData(channel);
-        for (let i = 0; i < totalSamples; i += 1) {
+        for (let i = 0; i < targetSamples; i += 1) {
           peak = Math.max(peak, Math.abs(data[i]));
         }
       }
@@ -1218,7 +1226,7 @@ class AudioEngine {
         const scale = peakLimit / peak;
         for (let channel = 0; channel < trimmed.numberOfChannels; channel += 1) {
           const data = trimmed.getChannelData(channel);
-          for (let i = 0; i < totalSamples; i += 1) {
+          for (let i = 0; i < targetSamples; i += 1) {
             data[i] *= scale;
           }
         }
@@ -1226,6 +1234,10 @@ class AudioEngine {
     }
 
     return trimmed;
+  }
+
+  noteWallDurationSec(buffer, playbackRate = 1) {
+    return buffer.length / buffer.sampleRate / playbackRate;
   }
 
   trimSolfegeForBeat(buffer, durationSec) {
@@ -1418,7 +1430,8 @@ class AudioEngine {
   }
 
   instrumentPlaybackRate(midi) {
-    const region = findSampleRegion(this.instrumentRegions, midi);
+    const region = findSampleRegionOrNearest(this.instrumentRegions, midi);
+    if (!region) throw new Error(`No sample for MIDI ${midi}`);
     const center = regionCenter(region);
     const semitoneRate = 2 ** ((midi - center) / 12);
     const tuneCents = region.tune ?? 0;
@@ -1750,6 +1763,9 @@ class AudioEngine {
     source.buffer = buffer;
     source.playbackRate.value = playbackRate;
 
+    const wallDuration = this.noteWallDurationSec(buffer, playbackRate);
+    const stopAt = when + wallDuration;
+
     if (fadeIn > 0) {
       gainNode.gain.setValueAtTime(0, when);
       gainNode.gain.linearRampToValueAtTime(gain, when + fadeIn);
@@ -1759,6 +1775,7 @@ class AudioEngine {
 
     source.connect(gainNode).connect(output);
     source.start(when);
+    source.stop(stopAt);
     this.registerVoice(source, gainNode);
     source.onended = () => {
       this.releaseVoice(source);
