@@ -235,7 +235,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "2.1.2";
+const APP_VERSION = "2.1.3";
 const ANSWER_REVIEW_MS = 4500;
 
 const IDB_NAME = "earTrainingSamples";
@@ -3096,7 +3096,7 @@ class EarTrainingApp {
     this.choicePadWrapEl?.classList.toggle("hidden", !showPad);
 
     if (showPiano) {
-      const range = interval ? this.getPreset() : this.getKeyboardRange();
+      const range = this.getKeyboardRange();
       this.piano = new PianoKeyboard(this.keyboardEl, range.start, range.end);
       this.piano.setPreviewHandler((midi) => void this.previewNote(midi));
     }
@@ -3259,7 +3259,7 @@ class EarTrainingApp {
       this.keyboard?.setInteractive(true, (value) => {
         if (!this.running || !this.interactiveResolve || this.paused) return;
         if (this.keyboard === this.piano) void this.previewNote(value);
-        this.keyboard.setInteractive(false);
+        this.keyboard?.setInteractive(false);
         const done = this.interactiveResolve;
         this.interactiveResolve = null;
         done(value);
@@ -3302,6 +3302,13 @@ class EarTrainingApp {
     if (this.refABtn) this.refABtn.disabled = !this.samplesReady;
     if (this.replayBtn) this.replayBtn.disabled = !this.running || !this.currentQuestion;
     if (this.pauseBtn) this.pauseBtn.disabled = !disabled;
+  }
+
+  updateAuxControls() {
+    if (this.refABtn) this.refABtn.disabled = !this.samplesReady;
+    const canReplay = this.samplesReady && this.running && this.currentQuestion != null;
+    if (this.replayBtn) this.replayBtn.disabled = !canReplay;
+    if (this.pauseBtn) this.pauseBtn.disabled = !this.running;
   }
 
   stop() {
@@ -3784,6 +3791,8 @@ class EarTrainingApp {
     this.running = true;
     this.paused = false;
     this.currentQuestion = null;
+    this.finishAnswerReview();
+    this.clearSchedules();
     this.audio.resumeOnUserGesture();
     if (!this.audio.ctx) await this.audio.init();
     this.audio.resumeOnUserGesture();
