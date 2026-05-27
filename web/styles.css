@@ -343,11 +343,82 @@ html, body {
 }
 
 .note-display {
-  font-size: clamp(2rem, 9vw, 3.2rem);
+  font-size: clamp(1.6rem, 7vw, 2.8rem);
   font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   transition: color 0.15s ease, transform 0.15s ease;
+  word-break: break-word;
+}
+
+.detail-display {
+  width: 100%;
+  font-size: clamp(0.82rem, 3.2vw, 1rem);
+  line-height: 1.35;
+  color: #9ec5ef;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.detail-display[hidden] {
+  display: none;
+}
+
+.play-area.mode-dual {
+  height: clamp(320px, 52vh, 460px);
+}
+
+.play-area.mode-dual .display-area {
+  flex: 3 1 0;
+}
+
+.play-area.mode-dual .keyboard-wrap {
+  flex: 4 1 0;
+  min-height: 88px;
+}
+
+.play-area.mode-dual .choice-pad-wrap {
+  flex: 5 1 0;
+}
+
+.choice-pad-wrap {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.choice-pad-wrap .chord-pad {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 4px 8px;
+  scrollbar-gutter: stable;
+}
+
+.choice-pad-wrap .chord-pad::-webkit-scrollbar {
+  width: 6px;
+}
+
+.choice-pad-wrap .chord-pad::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 999px;
+}
+
+.play-area.mode-pad:not(.mode-dual) {
+  height: clamp(280px, 42vh, 400px);
+}
+
+.play-area.mode-pad:not(.mode-dual) .choice-pad-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.play-area.mode-pad:not(.mode-dual) .keyboard-wrap {
+  display: none;
 }
 
 .note-display.question {
@@ -467,20 +538,15 @@ html, body {
 
 .chord-pad {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   width: 100%;
-  min-height: 100%;
   align-content: start;
-  padding: 6px 2px;
-  overflow-y: auto;
 }
 
-.chord-pad.interval-pad {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 7px;
-  padding: 8px 4px;
-  align-content: center;
+.chord-pad.interval-pad,
+.chord-pad.chord-pad-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .chord-pad.progression-pad {
@@ -521,12 +587,14 @@ html, body {
   cursor: pointer;
 }
 
-.chord-pad:not(.interactive) .chord-btn:not(:disabled):hover {
+.chord-pad:not(.interactive) .chord-btn:not(:disabled):hover,
+.chord-pad.interactive .chord-btn:hover {
   border-color: rgba(77, 163, 255, 0.45);
   background: linear-gradient(180deg, #243247, #1b2838);
 }
 
-.chord-pad:not(.interactive) .chord-btn:not(:disabled):active {
+.chord-pad:not(.interactive) .chord-btn:not(:disabled):active,
+.chord-pad.interactive .chord-btn:active {
   transform: scale(0.98);
 }
 
@@ -603,7 +671,7 @@ html, body {
 
 .transport {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   padding: 12px;
   margin-bottom: 10px;
@@ -616,6 +684,10 @@ html, body {
 .transport .btn {
   width: 100%;
   min-height: 44px;
+}
+
+#startBtn {
+  grid-column: 1 / span 2;
 }
 
 .btn {
@@ -705,13 +777,17 @@ html, body {
     height: clamp(240px, 38vh, 320px);
   }
 
-  .chord-pad.interval-pad {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
+  .chord-pad.interval-pad,
+  .chord-pad.chord-pad-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .chord-pad.progression-pad {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .play-area.mode-dual {
+    height: clamp(300px, 50vh, 420px);
   }
 }
 

@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 2.1.0 -->
-  <link rel="stylesheet" href="styles.css?v=2.1.0">
+  <!-- build: 2.1.1 -->
+  <link rel="stylesheet" href="styles.css?v=2.1.1">
 </head>
 <body>
   <div class="app">
@@ -104,18 +104,23 @@
       <div class="display-area">
         <div class="display-panel">
           <div id="noteDisplay" class="note-display">?</div>
+          <div id="detailDisplay" class="detail-display" hidden></div>
           <div id="progress" class="progress">Loading samples...</div>
         </div>
       </div>
 
-      <div class="keyboard-wrap">
+      <div id="pianoWrap" class="keyboard-wrap">
         <div id="pianoKeyboard" class="piano-keyboard" aria-label="Piano keyboard"></div>
+      </div>
+      <div id="choicePadWrap" class="choice-pad-wrap hidden">
+        <div id="choicePad" class="chord-pad" aria-label="Answer choices"></div>
       </div>
     </section>
 
     <section class="transport">
       <button id="refABtn" class="btn tool" type="button" disabled>A440</button>
       <button id="replayBtn" class="btn tool" type="button" disabled>Replay</button>
+      <button id="pauseBtn" class="btn tool" type="button" disabled>Pause</button>
       <button id="startBtn" class="btn primary" disabled>Start</button>
       <button id="stopBtn" class="btn" disabled>Stop</button>
     </section>
@@ -132,7 +137,7 @@
   <script>
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=2.1.0"></script>
+  <script src="app.js?v=2.1.1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

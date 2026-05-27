@@ -1,4 +1,4 @@
-# 🎵 Ear Training v2.1.0
+# 🎵 Ear Training v2.1.1
 
 Browser solfege ear training — listen, tap, build pitch memory.
 
@@ -37,7 +37,10 @@ Browser solfege ear training — listen, tap, build pitch memory.
 - **Replay** — hear the current question again
 - **Click** — metronome on/off
 - **Chord preview** 🎵 — in Chords mode with basic triad sets, tap any chord before Start to hear it
-- **Stats link** — total practice time on the home page opens charts & heatmap
+- **Pause** — pause/resume during any session
+- **Live preview** — tap piano keys or chord buttons anytime to hear them
+- **Answer reveal** — solfege / chord tones highlighted on keyboard together with the answer box
+- **Interval mode** — piano scrolls to question range; answer lights both notes
 
 ---
 
