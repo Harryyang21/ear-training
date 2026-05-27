@@ -211,7 +211,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "20260531c";
+const APP_VERSION = "20260531d";
 
 const IDB_NAME = "earTrainingSamples";
 const IDB_STORE = "files";
@@ -1008,6 +1008,11 @@ function solfegeSupported(midi) {
 
 const NOTE_BEAT1_GAIN = 1;
 const NOTE_ANSWER_GAIN = 0.38;
+const HARMONIC_MIX_HEADROOM = 0.82;
+const HARMONIC_FADE_IN_SEC = 0.01;
+const INSTRUMENT_PEAK_LIMIT = 0.88;
+const INSTRUMENT_ATTACK_FADE_MS = 6;
+const OUTPUT_MAKEUP_GAIN = 1.14;
 const SOLFEGE_GAIN = 0.58;
 // Match ear_training.py METRONOME_VOLUME_DB = -20
 const METRONOME_GAIN = 0.1;
@@ -1059,6 +1064,8 @@ class AudioEngine {
   constructor() {
     this.ctx = null;
     this.master = null;
+    this.compressor = null;
+    this.outputGain = null;
     this.bufferCache = new Map();
     this.trimmedNoteCache = new Map();
     this.allInstrumentRegions = [];
@@ -1085,22 +1092,38 @@ class AudioEngine {
     this.onVisibilityChange = this.onVisibilityChange.bind(this);
   }
 
-  async init() {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this.master = this.ctx.createGain();
-    this.master.gain.value = 0.96;
+  connectOutputChain() {
+    this.compressor = this.ctx.createDynamicsCompressor();
+    this.compressor.threshold.value = -22;
+    this.compressor.knee.value = 10;
+    this.compressor.ratio.value = 12;
+    this.compressor.attack.value = 0.002;
+    this.compressor.release.value = 0.1;
+
+    this.outputGain = this.ctx.createGain();
+    this.outputGain.gain.value = OUTPUT_MAKEUP_GAIN;
+
+    this.master.connect(this.compressor);
+    this.compressor.connect(this.outputGain);
 
     // Safari/iOS suspends Web Audio on lock screen unless output goes through
     // an HTMLMediaElement backed by a MediaStream.
     if (isIOSDevice()) {
       this.mediaStreamDest = this.ctx.createMediaStreamDestination();
-      this.master.connect(this.mediaStreamDest);
+      this.outputGain.connect(this.mediaStreamDest);
       this.bridgeAudio = new Audio();
       this.bridgeAudio.srcObject = this.mediaStreamDest.stream;
       this.bridgeAudio.setAttribute("playsinline", "");
     } else {
-      this.master.connect(this.ctx.destination);
+      this.outputGain.connect(this.ctx.destination);
     }
+  }
+
+  async init() {
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 1;
+    this.connectOutputChain();
 
     await this.setInstrument(this.instrumentId);
     this.clickBuffer = this.createMetronomeClickBuffer();
@@ -1140,7 +1163,14 @@ class AudioEngine {
     this.trimmedNoteCache.clear();
   }
 
-  trimClipForBeat(buffer, wallDurationSec, playbackRate = 1, maxFadeMs = 80, fadeDivisor = 5) {
+  trimClipForBeat(
+    buffer,
+    wallDurationSec,
+    playbackRate = 1,
+    maxFadeMs = 80,
+    fadeDivisor = 5,
+    { attackFadeMs = 0, peakLimit = null } = {}
+  ) {
     const sampleRate = buffer.sampleRate;
     const durationMs = wallDurationSec * 1000;
     const fadeMs = Math.min(maxFadeMs, Math.max(1, durationMs / fadeDivisor));
@@ -1152,6 +1182,13 @@ class AudioEngine {
       totalSamples,
       Math.max(1, Math.round((fadeMs / 1000) * sampleRate * playbackRate))
     );
+    const attackSamples =
+      attackFadeMs > 0
+        ? Math.min(
+            totalSamples,
+            Math.max(1, Math.round((attackFadeMs / 1000) * sampleRate * playbackRate))
+          )
+        : 0;
     const fadeStart = totalSamples - fadeSamples;
     const trimmed = this.ctx.createBuffer(buffer.numberOfChannels, totalSamples, sampleRate);
 
@@ -1160,10 +1197,31 @@ class AudioEngine {
       const target = trimmed.getChannelData(channel);
       for (let i = 0; i < totalSamples; i += 1) {
         let gain = 1;
-        if (i >= fadeStart) {
+        if (attackSamples > 0 && i < attackSamples) {
+          gain = (i + 1) / attackSamples;
+        } else if (i >= fadeStart) {
           gain = (totalSamples - i) / fadeSamples;
         }
         target[i] = source[i] * gain;
+      }
+    }
+
+    if (peakLimit != null && peakLimit > 0) {
+      let peak = 0;
+      for (let channel = 0; channel < trimmed.numberOfChannels; channel += 1) {
+        const data = trimmed.getChannelData(channel);
+        for (let i = 0; i < totalSamples; i += 1) {
+          peak = Math.max(peak, Math.abs(data[i]));
+        }
+      }
+      if (peak > peakLimit) {
+        const scale = peakLimit / peak;
+        for (let channel = 0; channel < trimmed.numberOfChannels; channel += 1) {
+          const data = trimmed.getChannelData(channel);
+          for (let i = 0; i < totalSamples; i += 1) {
+            data[i] *= scale;
+          }
+        }
       }
     }
 
@@ -1176,7 +1234,10 @@ class AudioEngine {
 
   trimInstrumentForBeat(buffer, durationSec, playbackRate) {
     // Match ear_training.PianoSampleBank.get_tone(): fade_out(min(200ms, beat/4))
-    return this.trimClipForBeat(buffer, durationSec, playbackRate, 200, 4);
+    return this.trimClipForBeat(buffer, durationSec, playbackRate, 200, 4, {
+      attackFadeMs: INSTRUMENT_ATTACK_FADE_MS,
+      peakLimit: INSTRUMENT_PEAK_LIMIT,
+    });
   }
 
   haltAudibleOutput() {
@@ -1822,21 +1883,23 @@ class AudioEngine {
 
   simultaneousVoiceGain(voiceCount, baseGain = 1) {
     if (voiceCount <= 1) return baseGain;
-    return (baseGain * 1.35) / Math.sqrt(voiceCount);
+    // Peak-safe linear mix: overlapping attacks add in amplitude, not RMS.
+    return (baseGain * HARMONIC_MIX_HEADROOM) / voiceCount;
   }
 
   scheduleSimultaneousNotes(midis, when, durationSec, gain = 1) {
     const voiceGain = this.simultaneousVoiceGain(midis.length, gain);
+    const fadeIn = midis.length > 1 ? HARMONIC_FADE_IN_SEC : 0;
     for (const midi of midis) {
-      this.scheduleNote(midi, when, durationSec, voiceGain);
+      this.scheduleNote(midi, when, durationSec, voiceGain, fadeIn);
     }
   }
 
-  scheduleNote(midi, when, durationSec, gain = 1) {
+  scheduleNote(midi, when, durationSec, gain = 1, fadeIn = 0) {
     const url = this.instrumentSamplePath(midi);
     const buffer = this.bufferCache.get(url);
     if (!buffer) throw new Error(`Sample not preloaded: ${url}`);
-    this.scheduleNoteBuffer(buffer, midi, when, durationSec, gain);
+    this.scheduleNoteBuffer(buffer, midi, when, durationSec, gain, fadeIn);
   }
 
   scheduleChord(midis, when, durationSec, gain = 1) {
@@ -1872,11 +1935,12 @@ class AudioEngine {
     this.scheduleChord(midis, this.ctx.currentTime, durationSec, gain);
   }
 
-  scheduleNoteBuffer(buffer, midi, when, durationSec, gain = 1) {
+  scheduleNoteBuffer(buffer, midi, when, durationSec, gain = 1, fadeIn = 0) {
     const trimmed = this.getTrimmedNoteBuffer(midi, durationSec);
     this.playBuffer(trimmed, when, {
       gain: gain * this.instrumentGain,
       playbackRate: this.instrumentPlaybackRate(midi),
+      fadeIn,
     });
   }
 
@@ -2485,6 +2549,7 @@ class EarTrainingApp {
   async replayCurrentQuestion() {
     if (!this.running || !this.currentQuestion) return;
     await this.ensureAudioReadyForControls();
+    this.audio.stopAllVoices(true);
     const { beatSec } = this.currentQuestion;
     const when = this.audio.ctx.currentTime + 0.02;
 
