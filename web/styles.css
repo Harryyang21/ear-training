@@ -32,6 +32,7 @@ html, body {
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  overscroll-behavior: none;
 }
 
 .app {
@@ -323,7 +324,7 @@ html, body {
 .play-area.mode-dual {
   height: auto;
   min-height: 0;
-  grid-template-rows: minmax(108px, auto) clamp(110px, 16vh, 140px) auto;
+  grid-template-rows: minmax(108px, auto) clamp(130px, 22vh, 180px) auto;
   grid-template-areas:
     "display"
     "piano"
@@ -401,13 +402,15 @@ html, body {
 }
 
 .review-next {
-  margin-top: 2px;
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(77, 163, 255, 0.55);
-  background: rgba(77, 163, 255, 0.14);
-  color: #b9daff;
-  font-size: 0.82rem;
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #3d8fe6;
+  background: linear-gradient(180deg, rgba(94, 176, 255, 0.28), rgba(61, 143, 230, 0.18));
+  color: #d9ebff;
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -425,8 +428,8 @@ html, body {
 }
 
 .play-area.mode-dual #pianoWrap {
-  min-height: clamp(110px, 16vh, 140px);
-  height: clamp(110px, 16vh, 140px);
+  min-height: clamp(130px, 22vh, 180px);
+  height: clamp(130px, 22vh, 180px);
   max-height: none;
 }
 
@@ -453,7 +456,7 @@ html, body {
 }
 
 .choice-pad-box .chord-pad.interval-pad {
-  max-height: calc(3 * 40px + 2 * 7px);
+  max-height: calc(4 * 48px + 3 * 8px);
 }
 
 .choice-pad-wrap {
@@ -639,10 +642,10 @@ html, body {
 }
 
 .chord-pad.interval-pad .chord-btn {
-  min-height: 40px;
-  padding: 8px 4px;
-  font-size: 0.84rem;
-  border-radius: 10px;
+  min-height: 48px;
+  padding: 10px 6px;
+  font-size: 0.92rem;
+  border-radius: 12px;
 }
 
 .chord-pad.progression-pad .chord-btn {
