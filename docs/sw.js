@@ -1,4 +1,4 @@
-const CACHE = "ear-training-2.1.5";
+const CACHE = "ear-training-2.1.6";
 const SHELL = ["index.html", "stats.html", "app.js", "stats.js", "stats-storage.js", "styles.css"];
 
 self.addEventListener("install", (event) => {

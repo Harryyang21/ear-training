@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web" / "index.html"
-VERSION = "2.1.5"
+VERSION = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))["version"]
 
 text = subprocess.check_output(
     ["git", "show", "0d1a3cc:web/index.html"],

@@ -3,9 +3,9 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $WebDir = Join-Path $Root "web"
 $DocsDir = Join-Path $Root "docs"
-$SyncVersion = Join-Path $PSScriptRoot "sync_version.ps1"
+$SyncVersion = Join-Path $PSScriptRoot "sync_version.py"
 
-& powershell -NoProfile -ExecutionPolicy Bypass -File $SyncVersion
+python $SyncVersion
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $files = @(
