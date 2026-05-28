@@ -13,12 +13,12 @@ const C_MAJOR_TRIADS = [
   { id: "F", label: "F", midis: [53, 57, 60] },
   { id: "G", label: "G", midis: [55, 59, 62] },
   { id: "Am", label: "Am", midis: [57, 60, 64] },
-  { id: "Bdim", label: "B?", midis: [59, 62, 65] },
+  { id: "Bdim", label: "B°", midis: [59, 62, 65] },
 ];
 
 const A_MINOR_TRIADS = [
   { id: "Am", label: "Am", midis: [57, 60, 64] },
-  { id: "Bdim", label: "B?", midis: [59, 62, 65] },
+  { id: "Bdim", label: "B°", midis: [59, 62, 65] },
   { id: "C", label: "C", midis: [60, 64, 67] },
   { id: "Dm", label: "Dm", midis: [62, 65, 69] },
   { id: "Em", label: "Em", midis: [64, 67, 71] },
@@ -27,39 +27,39 @@ const A_MINOR_TRIADS = [
 ];
 
 const C_MAJOR_SEVENTHS = [
-  { id: "Cmaj7", label: "C??", midis: [48, 52, 55, 59] },
+  { id: "Cmaj7", label: "CΔ", midis: [48, 52, 55, 59] },
   { id: "Dm7", label: "Dm7", midis: [50, 53, 57, 60] },
   { id: "Em7", label: "Em7", midis: [52, 55, 59, 62] },
-  { id: "Fmaj7", label: "F??", midis: [53, 57, 60, 64] },
+  { id: "Fmaj7", label: "FΔ", midis: [53, 57, 60, 64] },
   { id: "G7", label: "G7", midis: [55, 59, 62, 66] },
   { id: "Am7", label: "Am7", midis: [57, 60, 64, 67] },
-  { id: "Bm7b5", label: "Bm7???5", midis: [59, 62, 65, 69] },
+  { id: "Bm7b5", label: "Bm7♭5", midis: [59, 62, 65, 69] },
 ];
 
 const C_MAJOR_PROGRESSIONS = [
-  { id: "I-IV-V-I", label: "I???IV???V???I ? Canon ????", chordIds: ["C", "F", "G", "C"] },
-  { id: "I-V-vi-IV", label: "I???V???vi???IV ? Pop ????", chordIds: ["C", "G", "Am", "F"] },
-  { id: "vi-IV-I-V", label: "vi???IV???I???V ? Ballad ????", chordIds: ["Am", "F", "C", "G"] },
-  { id: "I-vi-IV-V", label: "I???vi???IV???V ? 50s ????", chordIds: ["C", "Am", "F", "G"] },
-  { id: "ii-V-I", label: "ii???V???I ? Jazz ????", chordIds: ["Dm", "G", "C"] },
-  { id: "I-IV-vi-V", label: "I???IV???vi???V", chordIds: ["C", "F", "Am", "G"] },
-  { id: "vi-V-IV-V", label: "vi???V???IV???V", chordIds: ["Am", "G", "F", "G"] },
-  { id: "I-V-IV-V", label: "I???V???IV???V ? Rock ????", chordIds: ["C", "G", "F", "G"] },
-  { id: "I-V-vi-iii", label: "I???V???vi???iii ? Beatles ????", chordIds: ["C", "G", "Am", "Em"] },
-  { id: "I-vi-ii-V", label: "I???vi???ii???V ? Doowop", chordIds: ["C", "Am", "Dm", "G"] },
-  { id: "I-iii-vi-IV", label: "I???iii???vi???IV", chordIds: ["C", "Em", "Am", "F"] },
-  { id: "IV-I-V-vi", label: "IV???I???V???vi", chordIds: ["F", "C", "G", "Am"] },
-  { id: "I-V-ii-IV", label: "I???V???ii???IV", chordIds: ["C", "G", "Dm", "F"] },
-  { id: "vi-IV-V-I", label: "vi???IV???V???I ? Epic ???", chordIds: ["Am", "F", "G", "C"] },
-  { id: "I-IV-vi-iii", label: "I???IV???vi???iii", chordIds: ["C", "F", "Am", "Em"] },
-  { id: "I-bVII-IV-I", label: "I??????VII???IV???I ? Rock ????", chordIds: ["C", "Bb", "F", "C"] },
-  { id: "vi-I-IV-V", label: "vi???I???IV???V", chordIds: ["Am", "C", "F", "G"] },
-  { id: "I-V-vi-IV-V", label: "I???V???vi???IV???V ? Extended", chordIds: ["C", "G", "Am", "F", "G"] },
+  { id: "I-IV-V-I", label: "I–IV–V–I · Canon 🎼", chordIds: ["C", "F", "G", "C"] },
+  { id: "I-V-vi-IV", label: "I–V–vi–IV · Pop 🎤", chordIds: ["C", "G", "Am", "F"] },
+  { id: "vi-IV-I-V", label: "vi–IV–I–V · Ballad 💫", chordIds: ["Am", "F", "C", "G"] },
+  { id: "I-vi-IV-V", label: "I–vi–IV–V · 50s 🕺", chordIds: ["C", "Am", "F", "G"] },
+  { id: "ii-V-I", label: "ii–V–I · Jazz 🎷", chordIds: ["Dm", "G", "C"] },
+  { id: "I-IV-vi-V", label: "I–IV–vi–V", chordIds: ["C", "F", "Am", "G"] },
+  { id: "vi-V-IV-V", label: "vi–V–IV–V", chordIds: ["Am", "G", "F", "G"] },
+  { id: "I-V-IV-V", label: "I–V–IV–V · Rock 🎸", chordIds: ["C", "G", "F", "G"] },
+  { id: "I-V-vi-iii", label: "I–V–vi–iii · Beatles 🎹", chordIds: ["C", "G", "Am", "Em"] },
+  { id: "I-vi-ii-V", label: "I–vi–ii–V · Doowop", chordIds: ["C", "Am", "Dm", "G"] },
+  { id: "I-iii-vi-IV", label: "I–iii–vi–IV", chordIds: ["C", "Em", "Am", "F"] },
+  { id: "IV-I-V-vi", label: "IV–I–V–vi", chordIds: ["F", "C", "G", "Am"] },
+  { id: "I-V-ii-IV", label: "I–V–ii–IV", chordIds: ["C", "G", "Dm", "F"] },
+  { id: "vi-IV-V-I", label: "vi–IV–V–I · Epic ✨", chordIds: ["Am", "F", "G", "C"] },
+  { id: "I-IV-vi-iii", label: "I–IV–vi–iii", chordIds: ["C", "F", "Am", "Em"] },
+  { id: "I-bVII-IV-I", label: "I–♭VII–IV–I · Rock 🔥", chordIds: ["C", "Bb", "F", "C"] },
+  { id: "vi-I-IV-V", label: "vi–I–IV–V", chordIds: ["Am", "C", "F", "G"] },
+  { id: "I-V-vi-IV-V", label: "I–V–vi–IV–V · Extended", chordIds: ["C", "G", "Am", "F", "G"] },
 ];
 
 const C_MAJOR_POP_CHORDS = [
   ...C_MAJOR_TRIADS,
-  { id: "Bb", label: "B???", midis: [58, 62, 65] },
+  { id: "Bb", label: "B♭", midis: [58, 62, 65] },
 ];
 
 const INVERSION_LABELS = ["", " 6", " 6/4", " 4/2"];
@@ -235,7 +235,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "2.1.6";
+const APP_VERSION = "2.1.7";
 const ANSWER_REVIEW_PAD_MS = 700;
 const ANSWER_REVIEW_MIN_MS = 1800;
 const ANSWER_REVIEW_MAX_MS = 12000;
@@ -358,11 +358,11 @@ function solfegeDisplay(midi) {
 }
 
 function solfegeList(midis) {
-  return midis.map((midi) => pitchDisplay(midi)).join(" ? ");
+  return midis.map((midi) => pitchDisplay(midi)).join(" · ");
 }
 
 function formatMelodyAnswer(melody) {
-  return melody.map((midi) => pitchDisplay(midi)).join(" ? ");
+  return melody.map((midi) => pitchDisplay(midi)).join(" · ");
 }
 
 function formatChordAnswerDetail(item, chordMap) {
@@ -373,13 +373,13 @@ function formatChordAnswerDetail(item, chordMap) {
         const chord = chordMap.get(id);
         return chord ? `${chord.label} (${solfegeList(chord.midis)})` : id;
       })
-      .join(" ??? ");
+      .join(" → ");
   }
   return "";
 }
 
 function formatIntervalAnswerDetail(lowMidi, highMidi) {
-  return `${pitchDisplay(lowMidi)} ? ${pitchDisplay(highMidi)}`;
+  return `${pitchDisplay(lowMidi)} · ${pitchDisplay(highMidi)}`;
 }
 
 function diatonicNotes(start, end) {
@@ -456,12 +456,12 @@ function friendlyOrigin() {
 const DEFAULT_NUM_NOTES = 300;
 
 const MODE_SUBTITLES = {
-  passive: "???? Two beats ? auto reveal",
-  interactive: "???? A440 ? tap to answer",
-  bass: "???? Low bass ? tap to answer",
-  chords: "???? Chords ? tap to answer",
-  intervals: "???? Intervals ? pick the size",
-  melody: "???? Melody ? replay on keyboard",
+  passive: "🎧 Two beats · auto reveal",
+  interactive: "👆 A440 · tap to answer",
+  bass: "🎸 Low bass · tap to answer",
+  chords: "🎹 Chords · tap to answer",
+  intervals: "🎯 Intervals · pick the size",
+  melody: "🎼 Melody · replay on keyboard",
 };
 
 const MELODY_PREVIEW_GAIN = 0.72;
@@ -2693,9 +2693,9 @@ class EarTrainingApp {
 
   updateHelpText() {
     if (!this.samplesReady) return;
-    let hint = `Ready ? v${APP_VERSION} ? Tap keys/chords to preview ????`;
+    let hint = `Ready · v${APP_VERSION} · Tap keys/chords to preview 🎵`;
     if (this.isMelodyMode()) {
-      hint += " ? Z???M during replay ????";
+      hint += " · Z–M during replay ⌨️";
     }
     this.helpEl.textContent = hint;
   }
@@ -3027,11 +3027,11 @@ class EarTrainingApp {
     } catch (error) {
       this.helpEl.textContent = "Cannot reach sample server. Check network and refresh.";
       this.setStatus(`Connection failed: ${error.message}`);
-      this.progressEl.textContent = "Offline ? refresh to retry";
+      this.progressEl.textContent = "Offline · refresh to retry";
       return false;
     }
 
-    this.helpEl.textContent = `Ready ? v${APP_VERSION}`;
+    this.helpEl.textContent = `Ready · v${APP_VERSION}`;
     void requestPersistentStorage();
     this.updateHelpText();
     return true;
@@ -3041,7 +3041,7 @@ class EarTrainingApp {
     const fileName = url ? url.split("/").pop() : "";
     const group = instrumentLabelFromSampleUrl(url);
     const prefix = fromCache ? "Cache" : "Download";
-    const groupPart = group ? ` ? ${group}` : "";
+    const groupPart = group ? ` · ${group}` : "";
     return fileName
       ? `${prefix} ${done}/${total}${groupPart}`
       : `${prefix} ${done}/${total}${groupPart}...`;
@@ -3049,7 +3049,6 @@ class EarTrainingApp {
 
   async bootstrapSamples() {
     this.bootstrapController?.abort();
-    this.backgroundWarmController?.abort();
     this.bootstrapController = new AbortController();
     const signal = this.bootstrapController.signal;
 
@@ -3061,7 +3060,7 @@ class EarTrainingApp {
       await this.audio.setInstrument(this.instrumentEl.value);
 
       const notes = getBootstrapNotes();
-      const urls = this.audio.collectBootstrapPreloadUrls(notes);
+      const urls = await this.audio.collectAllPreloadUrls(notes);
       const progressState = { done: 0, total: urls.length };
       const concurrency = isIPhone() ? 1 : 6;
 
@@ -3086,16 +3085,11 @@ class EarTrainingApp {
       this.progressEl.textContent = "Ready";
       this.setControlsDisabled(false);
       this.updateHelpText();
-
-      this.backgroundWarmController?.abort();
-      this.backgroundWarmController = new AbortController();
-      const warmSignal = this.backgroundWarmController.signal;
-      void this.audio.warmRemainingInstruments(notes, warmSignal).catch(() => {});
     } catch (error) {
       if (signal.aborted || error.message === "Loading cancelled") return;
       this.samplesReady = false;
       this.setStatus(`Load failed: ${error.message}`);
-      this.progressEl.textContent = "Load failed ? refresh";
+      this.progressEl.textContent = "Load failed · refresh";
       this.startBtn.disabled = true;
     } finally {
       if (this.bootstrapController?.signal === signal) {
@@ -3445,7 +3439,7 @@ class EarTrainingApp {
       this.scheduleAt(noteStart, () => {
         if (!this.running) return;
         this.setDisplay("?", "question");
-        this.progressEl.textContent = `${index}/${numNotes} ? beat 1`;
+        this.progressEl.textContent = `${index}/${numNotes} · beat 1`;
         this.piano?.clearFeedback();
       });
       this.audio.scheduleNote(midi, noteStart, beatSec, this.audio.noteBeat1Gain);
@@ -3454,14 +3448,14 @@ class EarTrainingApp {
       this.scheduleAt(beat2, () => {
         if (!this.running) return;
         this.setDisplay("?", "question");
-        this.progressEl.textContent = `${index}/${numNotes} ? beat 2`;
+        this.progressEl.textContent = `${index}/${numNotes} · beat 2`;
       });
 
       const beat3 = noteStart + 2 * beatSec;
       this.scheduleAt(beat3, () => {
         if (!this.running) return;
         this.setDisplay(solfegeDisplay(midi), "answer", midi);
-        this.progressEl.textContent = `${index}/${numNotes} ? answer`;
+        this.progressEl.textContent = `${index}/${numNotes} · answer`;
         this.piano?.revealMidis([midi]);
       });
       this.audio.scheduleNote(midi, beat3, beatSec, this.audio.noteAnswerGain);
@@ -3502,18 +3496,18 @@ class EarTrainingApp {
       this.pad?.clearFeedback();
 
       if (playRef) {
-        this.progressEl.textContent = `${index}/${numNotes} ? A440 ? ${correctCount}`;
+        this.progressEl.textContent = `${index}/${numNotes} · A440 · ${correctCount}`;
         this.audio.playReferenceA(base);
         if (!(await this.waitUntilAudio(questionStart))) break;
       }
 
-      this.progressEl.textContent = `${index}/${numNotes} ? listen ? ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · listen · ${correctCount}`;
       this.maybeClick(questionStart);
       this.audio.scheduleNote(targetMidi, questionStart, beatSec, this.audio.noteBeat1Gain);
       if (!(await this.waitUntilAudio(questionEnd))) break;
 
       this.setDisplay("Tap", "tap");
-      this.progressEl.textContent = `${index}/${numNotes} ? tap ? ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
       this.maybeClick(questionEnd);
 
       const tapStartedAt = performance.now();
@@ -3528,12 +3522,12 @@ class EarTrainingApp {
       const answerAt = Math.max(questionEnd, this.audio.ctx.currentTime + 0.02);
       const answerDetail = this.answerDisplay(targetMidi);
       if (isCorrect) {
-        this.setDisplay(answerDetail, "correct", null, { mark: "???" });
-        this.progressEl.textContent = `${index}/${numNotes} ? correct ? ${correctCount}/${index}`;
+        this.setDisplay(answerDetail, "correct", null, { mark: "✓" });
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
-        this.setDisplay(answerDetail, "wrong", null, { mark: "??" });
+        this.setDisplay(answerDetail, "wrong", null, { mark: "×" });
         this.progressEl.textContent =
-          `${index}/${numNotes} ? ${noteLabel(pressedMidi)} ??? ${answerDetail} ? ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${noteLabel(pressedMidi)} → ${answerDetail} · ${correctCount}/${index}`;
       }
       this.piano?.revealMidis([targetMidi]);
 
@@ -3587,7 +3581,7 @@ class EarTrainingApp {
       this.piano?.clearFeedback();
       this.pad?.clearFeedback();
 
-      this.progressEl.textContent = `${index}/${numNotes} ? listen ? ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · listen · ${correctCount}`;
       this.maybeClick(questionStart);
       if (type === "progression") {
         this.audio.scheduleProgression(
@@ -3603,7 +3597,7 @@ class EarTrainingApp {
       if (!(await this.waitUntilAudio(listenEnd))) break;
 
       this.setDisplay("Tap", "tap");
-      this.progressEl.textContent = `${index}/${numNotes} ? tap ? ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
       this.maybeClick(listenEnd);
 
       const tapStartedAt = performance.now();
@@ -3619,12 +3613,12 @@ class EarTrainingApp {
       const answerDetail = formatChordAnswerDetail(targetItem, chordMap);
       const pressedLabel = getItemById(items, pressedId)?.label ?? pressedId;
       if (isCorrect) {
-        this.setDisplay(targetItem.label, "correct", null, { mark: "???", detail: answerDetail });
-        this.progressEl.textContent = `${index}/${numNotes} ? correct ? ${correctCount}/${index}`;
+        this.setDisplay(targetItem.label, "correct", null, { mark: "✓", detail: answerDetail });
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
-        this.setDisplay(targetItem.label, "wrong", null, { mark: "??", detail: answerDetail });
+        this.setDisplay(targetItem.label, "wrong", null, { mark: "×", detail: answerDetail });
         this.progressEl.textContent =
-          `${index}/${numNotes} ? ${pressedLabel} ??? ${targetItem.label} ? ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${pressedLabel} → ${targetItem.label} · ${correctCount}/${index}`;
       }
 
       this.maybeClick(answerAt);
@@ -3690,7 +3684,7 @@ class EarTrainingApp {
       this.piano?.clearFeedback();
       this.pad?.clearFeedback();
 
-      this.progressEl.textContent = `${index}/${numNotes} ? ${style} ? ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · ${style} · ${correctCount}`;
       this.maybeClick(questionStart);
       this.piano?.focusMidis([lowMidi, highMidi]);
       this.audio.scheduleInterval(
@@ -3704,7 +3698,7 @@ class EarTrainingApp {
       if (!(await this.waitUntilAudio(questionEnd))) break;
 
       this.setDisplay("Tap", "tap");
-      this.progressEl.textContent = `${index}/${numNotes} ? tap ? ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · tap · ${correctCount}`;
       this.maybeClick(questionEnd);
 
       const tapStartedAt = performance.now();
@@ -3720,12 +3714,12 @@ class EarTrainingApp {
       const answerDetail = formatIntervalAnswerDetail(lowMidi, highMidi);
       const pressedLabel = getIntervalById(pressedId)?.label ?? pressedId;
       if (isCorrect) {
-        this.setDisplay(targetInterval.label, "correct", null, { mark: "???", detail: answerDetail });
-        this.progressEl.textContent = `${index}/${numNotes} ? correct ? ${correctCount}/${index}`;
+        this.setDisplay(targetInterval.label, "correct", null, { mark: "✓", detail: answerDetail });
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
-        this.setDisplay(targetInterval.label, "wrong", null, { mark: "??", detail: answerDetail });
+        this.setDisplay(targetInterval.label, "wrong", null, { mark: "×", detail: answerDetail });
         this.progressEl.textContent =
-          `${index}/${numNotes} ? ${pressedLabel} ??? ${targetInterval.label} ? ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${pressedLabel} → ${targetInterval.label} · ${correctCount}/${index}`;
       }
       this.piano?.revealMidis([lowMidi, highMidi]);
 
@@ -3778,13 +3772,13 @@ class EarTrainingApp {
       this.piano?.clearFeedback();
       this.pad?.clearFeedback();
 
-      this.progressEl.textContent = `${index}/${numNotes} ? ${melody.length} notes ? ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · ${melody.length} notes · ${correctCount}`;
       this.maybeClick(questionStart);
       this.audio.scheduleMelody(melody, questionStart, beatSec, this.audio.noteBeat1Gain);
       if (!(await this.waitUntilAudio(listenEnd))) break;
 
       this.setDisplay("Replay", "tap");
-      this.progressEl.textContent = `${index}/${numNotes} ? replay ? ${correctCount}`;
+      this.progressEl.textContent = `${index}/${numNotes} · replay · ${correctCount}`;
 
       const tapStartedAt = performance.now();
       const entered = await this.waitForMelodySequence(melody.length, beatSec);
@@ -3797,11 +3791,11 @@ class EarTrainingApp {
       const answerAt = Math.max(listenEnd, this.audio.ctx.currentTime + 0.02);
       const melodyAnswer = formatMelodyAnswer(melody);
       if (isCorrect) {
-        this.setDisplay(melodyAnswer, "correct", null, { mark: "???" });
-        this.progressEl.textContent = `${index}/${numNotes} ? correct ? ${correctCount}/${index}`;
+        this.setDisplay(melodyAnswer, "correct", null, { mark: "✓" });
+        this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
-        this.setDisplay(melodyAnswer, "wrong", null, { mark: "??" });
-        this.progressEl.textContent = `${index}/${numNotes} ? wrong ? ${correctCount}/${index}`;
+        this.setDisplay(melodyAnswer, "wrong", null, { mark: "×" });
+        this.progressEl.textContent = `${index}/${numNotes} · wrong · ${correctCount}/${index}`;
       }
       this.piano?.revealMidis(melody);
 
