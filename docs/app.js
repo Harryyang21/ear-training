@@ -235,7 +235,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "2.1.9";
+const APP_VERSION = "2.2.0";
 const ANSWER_REVIEW_PAD_MS = 700;
 const ANSWER_REVIEW_MIN_MS = 1800;
 const ANSWER_REVIEW_MAX_MS = 12000;
@@ -1378,6 +1378,11 @@ class AudioEngine {
     this.stopReferenceA();
     this.practiceTracker?.resetPlaying();
     if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.master) {
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setValueAtTime(0, now);
+    }
     if (this.bridgeAudio && !this.bridgeAudio.paused) {
       this.bridgeAudio.pause();
     }
@@ -1397,6 +1402,11 @@ class AudioEngine {
 
   resumeOnUserGesture() {
     if (!this.ctx) return;
+    if (this.master) {
+      const now = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setValueAtTime(1, now);
+    }
     if (this.ctx.state === "suspended") {
       void this.ctx.resume();
     }
@@ -1739,7 +1749,7 @@ class AudioEngine {
     const savedId = this.instrumentId;
     for (const instrumentId of Object.keys(INSTRUMENTS)) {
       if (signal?.aborted) break;
-      if (instrumentId === savedId) continue;
+      if (instrumentId === "piano") continue;
       await this.setInstrument(instrumentId);
       const urls = this.notesInstrumentPreloadUrls(notes).filter((url) => !this.bufferCache.has(url));
       if (!urls.length) continue;
@@ -3067,6 +3077,7 @@ class EarTrainingApp {
 
   async bootstrapSamples() {
     this.bootstrapController?.abort();
+    this.backgroundWarmController?.abort();
     this.bootstrapController = new AbortController();
     const signal = this.bootstrapController.signal;
 
@@ -3075,10 +3086,10 @@ class EarTrainingApp {
 
     try {
       if (!this.audio.ctx) await this.audio.init();
-      await this.audio.setInstrument(this.instrumentEl.value);
+      await this.audio.setInstrument("piano");
 
       const notes = getBootstrapNotes();
-      const urls = await this.audio.collectAllPreloadUrls(notes);
+      const urls = this.audio.collectBootstrapPreloadUrls(notes);
       const progressState = { done: 0, total: urls.length };
       const concurrency = isIPhone() ? 1 : 6;
 
@@ -3103,6 +3114,16 @@ class EarTrainingApp {
       this.progressEl.textContent = "Ready";
       this.setControlsDisabled(false);
       this.updateHelpText();
+
+      const selectedInstrument = this.instrumentEl.value;
+      if (selectedInstrument !== "piano") {
+        await this.audio.setInstrument(selectedInstrument);
+      }
+
+      this.backgroundWarmController?.abort();
+      this.backgroundWarmController = new AbortController();
+      const warmSignal = this.backgroundWarmController.signal;
+      void this.audio.warmRemainingInstruments(notes, warmSignal).catch(() => {});
     } catch (error) {
       if (signal.aborted || error.message === "Loading cancelled") return;
       this.samplesReady = false;

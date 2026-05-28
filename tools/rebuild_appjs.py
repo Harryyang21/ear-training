@@ -55,7 +55,7 @@ if "collectBootstrapPreloadUrls" not in text:
     const savedId = this.instrumentId;
     for (const instrumentId of Object.keys(INSTRUMENTS)) {
       if (signal?.aborted) break;
-      if (instrumentId === savedId) continue;
+      if (instrumentId === "piano") continue;
       await this.setInstrument(instrumentId);
       const urls = this.notesInstrumentPreloadUrls(notes).filter((url) => !this.bufferCache.has(url));
       if (!urls.length) continue;
@@ -84,8 +84,56 @@ if "backgroundWarmController" not in text:
         1,
     )
 
-# bootstrapSamples
-if "collectBootstrapPreloadUrls(notes)" not in text:
+# bootstrapSamples: piano + solfege first, background warm for other instruments
+if "await this.audio.collectAllPreloadUrls(notes)" in text:
+    text = text.replace(
+        "  async bootstrapSamples() {\n    this.bootstrapController?.abort();\n    this.bootstrapController = new AbortController();",
+        "  async bootstrapSamples() {\n    this.bootstrapController?.abort();\n    this.backgroundWarmController?.abort();\n    this.bootstrapController = new AbortController();",
+        1,
+    )
+    text = text.replace(
+        """      await this.audio.setInstrument(this.instrumentEl.value);
+
+      const notes = getBootstrapNotes();
+      const urls = await this.audio.collectAllPreloadUrls(notes);""",
+        """      await this.audio.setInstrument("piano");
+
+      const notes = getBootstrapNotes();
+      const urls = this.audio.collectBootstrapPreloadUrls(notes);""",
+        1,
+    )
+    text = text.replace(
+        """      this.samplesReady = true;
+      this.setStatus("");
+      this.progressEl.textContent = "Ready";
+      this.setControlsDisabled(false);
+      this.updateHelpText();
+    } catch (error) {
+      if (signal.aborted || error.message === "Loading cancelled") return;
+      this.samplesReady = false;""",
+        """      this.samplesReady = true;
+      this.setStatus("");
+      this.progressEl.textContent = "Ready";
+      this.setControlsDisabled(false);
+      this.updateHelpText();
+
+      const selectedInstrument = this.instrumentEl.value;
+      if (selectedInstrument !== "piano") {
+        await this.audio.setInstrument(selectedInstrument);
+      }
+
+      this.backgroundWarmController?.abort();
+      this.backgroundWarmController = new AbortController();
+      const warmSignal = this.backgroundWarmController.signal;
+      void this.audio.warmRemainingInstruments(notes, warmSignal).catch(() => {});
+    } catch (error) {
+      if (signal.aborted || error.message === "Loading cancelled") return;
+      this.samplesReady = false;""",
+        1,
+    )
+
+# Legacy bootstrap patch (partial apply from older script versions)
+if "collectBootstrapPreloadUrls(notes)" not in text.split("async bootstrapSamples")[1].split("async onInstrumentChange")[0]:
     text = text.replace(
         "  async bootstrapSamples() {\n    this.bootstrapController?.abort();\n    this.bootstrapController = new AbortController();",
         "  async bootstrapSamples() {\n    this.bootstrapController?.abort();\n    this.backgroundWarmController?.abort();\n    this.bootstrapController = new AbortController();",
@@ -134,10 +182,56 @@ text = text.replace(
     1,
 )
 
+SUSPEND_OUTPUT = """  async suspendOutput() {
+    this.stopReferenceA();
+    this.practiceTracker?.resetPlaying();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.master) {
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setValueAtTime(0, now);
+    }
+    if (this.bridgeAudio && !this.bridgeAudio.paused) {
+      this.bridgeAudio.pause();
+    }
+    if (this.ctx.state === "running") {
+      try {
+        await this.ctx.suspend();
+      } catch {
+        // Ignore suspend failures on unsupported browsers.
+      }
+    }
+  }"""
+
+RESUME_GESTURE = """  resumeOnUserGesture() {
+    if (!this.ctx) return;
+    if (this.master) {
+      const now = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setValueAtTime(1, now);
+    }
+    if (this.ctx.state === "suspended") {
+      void this.ctx.resume();
+    }
+    if (this.bridgeAudio?.paused) {
+      void this.bridgeAudio.play().catch(() => {});
+    }
+  }"""
+
 # Pause/resume: suspend AudioContext instead of canceling scheduled voices
 if "async suspendOutput()" not in text:
     text = text.replace(
         "  haltAudibleOutput() {\n    this.stopReferenceA();\n    this.stopAllVoices(true);\n  }",
+        f"""{SUSPEND_OUTPUT}
+
+  haltAudibleOutput() {{
+    this.stopReferenceA();
+    this.stopAllVoices(true);
+  }}""",
+        1,
+    )
+else:
+    text = text.replace(
         """  async suspendOutput() {
     this.stopReferenceA();
     this.practiceTracker?.resetPlaying();
@@ -152,14 +246,24 @@ if "async suspendOutput()" not in text:
         // Ignore suspend failures on unsupported browsers.
       }
     }
-  }
-
-  haltAudibleOutput() {
-    this.stopReferenceA();
-    this.stopAllVoices(true);
   }""",
+        SUSPEND_OUTPUT,
         1,
     )
+
+text = text.replace(
+    """  resumeOnUserGesture() {
+    if (!this.ctx) return;
+    if (this.ctx.state === "suspended") {
+      void this.ctx.resume();
+    }
+    if (this.bridgeAudio?.paused) {
+      void this.bridgeAudio.play().catch(() => {});
+    }
+  }""",
+    RESUME_GESTURE,
+    1,
+)
 
 text = text.replace(
     """  pauseSession() {
