@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 echo Syncing web/ to docs/...
-powershell -ExecutionPolicy Bypass -File tools\sync_web_to_docs.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\sync_web_to_docs.ps1
 if errorlevel 1 (
   echo Sync failed.
   pause
@@ -9,7 +9,7 @@ if errorlevel 1 (
 )
 echo.
 echo Uploading to Tencent COS...
-powershell -ExecutionPolicy Bypass -File tools\upload_cos_site.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\upload_cos_site.ps1
 if errorlevel 1 (
   echo Upload failed.
   pause

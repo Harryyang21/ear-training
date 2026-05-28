@@ -33,7 +33,7 @@ const C_MAJOR_SEVENTHS = [
   { id: "Fmaj7", label: "FΔ", midis: [53, 57, 60, 64] },
   { id: "G7", label: "G7", midis: [55, 59, 62, 66] },
   { id: "Am7", label: "Am7", midis: [57, 60, 64, 67] },
-  { id: "Bm7b5", label: "Bm7♭5", midis: [59, 62, 65, 69] },
+  { id: "Bm7b5", label: "Bm7�?", midis: [59, 62, 65, 69] },
 ];
 
 const C_MAJOR_PROGRESSIONS = [
@@ -50,7 +50,7 @@ const C_MAJOR_PROGRESSIONS = [
   { id: "I-iii-vi-IV", label: "I–iii–vi–IV", chordIds: ["C", "Em", "Am", "F"] },
   { id: "IV-I-V-vi", label: "IV–I–V–vi", chordIds: ["F", "C", "G", "Am"] },
   { id: "I-V-ii-IV", label: "I–V–ii–IV", chordIds: ["C", "G", "Dm", "F"] },
-  { id: "vi-IV-V-I", label: "vi–IV–V–I · Epic ✨", chordIds: ["Am", "F", "G", "C"] },
+  { id: "vi-IV-V-I", label: "vi–IV–V–I · Epic �?, chordIds: ["Am", "F", "G", "C"] },
   { id: "I-IV-vi-iii", label: "I–IV–vi–iii", chordIds: ["C", "F", "Am", "Em"] },
   { id: "I-bVII-IV-I", label: "I–♭VII–IV–I · Rock 🔥", chordIds: ["C", "Bb", "F", "C"] },
   { id: "vi-I-IV-V", label: "vi–I–IV–V", chordIds: ["Am", "C", "F", "G"] },
@@ -59,7 +59,7 @@ const C_MAJOR_PROGRESSIONS = [
 
 const C_MAJOR_POP_CHORDS = [
   ...C_MAJOR_TRIADS,
-  { id: "Bb", label: "B♭", midis: [58, 62, 65] },
+  { id: "Bb", label: "B�?, midis: [58, 62, 65] },
 ];
 
 const INVERSION_LABELS = ["", " 6", " 6/4", " 4/2"];
@@ -235,7 +235,7 @@ const JENNIFER_MIN_MIDI = 48;
 const SOLFEGE_MIN_MIDI = 48;
 const SOLFEGE_MAX_MIDI = 72;
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
-const APP_VERSION = "2.1.4";
+const APP_VERSION = "2.1.5";
 const ANSWER_REVIEW_PAD_MS = 700;
 const ANSWER_REVIEW_MIN_MS = 1800;
 const ANSWER_REVIEW_MAX_MS = 12000;
@@ -373,7 +373,7 @@ function formatChordAnswerDetail(item, chordMap) {
         const chord = chordMap.get(id);
         return chord ? `${chord.label} (${solfegeList(chord.midis)})` : id;
       })
-      .join(" → ");
+      .join(" �?");
   }
   return "";
 }
@@ -514,8 +514,15 @@ function buildComputerKeyMap(startMidi, endMidi) {
   return map;
 }
 
-const PRACTICE_TIME_STORAGE_KEY = "earTrainingPracticeMs";
-const ADAPTIVE_STATS_STORAGE_KEY = "earTrainingAdaptiveStats";
+const {
+  PRACTICE_TIME_STORAGE_KEY,
+  ADAPTIVE_STATS_STORAGE_KEY,
+  DAILY_LOG_STORAGE_KEY,
+  DAILY_GOAL_MS,
+  HEATMAP_WEEKS,
+  formatPracticeTime,
+  localDateKey,
+} = window.EarTrainingStats;
 
 const ADAPTIVE_BASE_WEIGHT = 1;
 const ADAPTIVE_MIN_WEIGHT = 1;
@@ -526,10 +533,6 @@ const ADAPTIVE_BOOST_MULTIPLIER = 1.45;
 const ADAPTIVE_STREAK_TO_REDUCE = 3;
 const ADAPTIVE_CORRECT_WEIGHT_REDUCE = 0.25;
 const ADAPTIVE_RANDOM_MIX = 0.62;
-
-const DAILY_GOAL_MS = 10 * 60 * 1000;
-const DAILY_LOG_STORAGE_KEY = "earTrainingDailyLog";
-const HEATMAP_WEEKS = 12;
 
 function answerRainbowClass(midi) {
   const pc = midi % 12;
@@ -549,17 +552,6 @@ function weightedChoice(entries) {
     if (roll <= 0) return entry.midi;
   }
   return entries[entries.length - 1].midi;
-}
-
-function formatPracticeTime(ms) {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  }
-  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 class PracticeTimeTracker {
@@ -655,13 +647,6 @@ class PracticeTimeTracker {
     }
     this.onUpdate?.();
   }
-}
-
-function localDateKey(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
 }
 
 class DailyPracticeLog {
@@ -3495,12 +3480,12 @@ class EarTrainingApp {
       const answerAt = Math.max(questionEnd, this.audio.ctx.currentTime + 0.02);
       const answerDetail = this.answerDisplay(targetMidi);
       if (isCorrect) {
-        this.setDisplay(answerDetail, "correct", null, { mark: "✓" });
+        this.setDisplay(answerDetail, "correct", null, { mark: "�? });
         this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
         this.setDisplay(answerDetail, "wrong", null, { mark: "×" });
         this.progressEl.textContent =
-          `${index}/${numNotes} · ${noteLabel(pressedMidi)} → ${answerDetail} · ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${noteLabel(pressedMidi)} �?${answerDetail} · ${correctCount}/${index}`;
       }
       this.piano?.revealMidis([targetMidi]);
 
@@ -3586,12 +3571,12 @@ class EarTrainingApp {
       const answerDetail = formatChordAnswerDetail(targetItem, chordMap);
       const pressedLabel = getItemById(items, pressedId)?.label ?? pressedId;
       if (isCorrect) {
-        this.setDisplay(targetItem.label, "correct", null, { mark: "✓", detail: answerDetail });
+        this.setDisplay(targetItem.label, "correct", null, { mark: "�?, detail: answerDetail });
         this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
         this.setDisplay(targetItem.label, "wrong", null, { mark: "×", detail: answerDetail });
         this.progressEl.textContent =
-          `${index}/${numNotes} · ${pressedLabel} → ${targetItem.label} · ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${pressedLabel} �?${targetItem.label} · ${correctCount}/${index}`;
       }
 
       this.maybeClick(answerAt);
@@ -3687,12 +3672,12 @@ class EarTrainingApp {
       const answerDetail = formatIntervalAnswerDetail(lowMidi, highMidi);
       const pressedLabel = getIntervalById(pressedId)?.label ?? pressedId;
       if (isCorrect) {
-        this.setDisplay(targetInterval.label, "correct", null, { mark: "✓", detail: answerDetail });
+        this.setDisplay(targetInterval.label, "correct", null, { mark: "�?, detail: answerDetail });
         this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
         this.setDisplay(targetInterval.label, "wrong", null, { mark: "×", detail: answerDetail });
         this.progressEl.textContent =
-          `${index}/${numNotes} · ${pressedLabel} → ${targetInterval.label} · ${correctCount}/${index}`;
+          `${index}/${numNotes} · ${pressedLabel} �?${targetInterval.label} · ${correctCount}/${index}`;
       }
       this.piano?.revealMidis([lowMidi, highMidi]);
 
@@ -3764,7 +3749,7 @@ class EarTrainingApp {
       const answerAt = Math.max(listenEnd, this.audio.ctx.currentTime + 0.02);
       const melodyAnswer = formatMelodyAnswer(melody);
       if (isCorrect) {
-        this.setDisplay(melodyAnswer, "correct", null, { mark: "✓" });
+        this.setDisplay(melodyAnswer, "correct", null, { mark: "�? });
         this.progressEl.textContent = `${index}/${numNotes} · correct · ${correctCount}/${index}`;
       } else {
         this.setDisplay(melodyAnswer, "wrong", null, { mark: "×" });

@@ -3,14 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Ear Training · Stats</title>
-  <!-- build: 2.1.2 -->
-  <link rel="stylesheet" href="styles.css?v=2.1.2">
+  <!-- build: 2.1.5 -->
+  <link rel="stylesheet" href="styles.css?v=2.1.5">
 </head>
 <body>
   <div class="app stats-page">
     <header class="header">
-      <a class="back-link" href="index.html">← Practice</a>
+      <a class="back-link" href="index.html">�?Practice</a>
       <h1>Stats</h1>
       <p id="totalPractice" class="subtitle">Total practiced 0:00</p>
       <p id="dailyGoalText" class="daily-goal-text">Today 0 / 10 min · Streak 0</p>
@@ -19,6 +21,19 @@
     <section class="stats-panel">
       <h2 class="stats-heading">12-week activity</h2>
       <div id="practiceHeatmap" class="practice-heatmap stats-heatmap" aria-label="Practice heatmap"></div>
+    </section>
+
+    <section class="stats-panel">
+      <h2 class="stats-heading">Accuracy by mode</h2>
+      <ul id="modeOverviewList" class="mode-overview-list"></ul>
+    </section>
+
+    <section class="stats-panel">
+      <h2 class="stats-heading">Solfege accuracy</h2>
+      <p id="solfegeChartHint" class="stats-hint">Practice Interactive or Bass to see note accuracy.</p>
+      <div class="chart-wrap">
+        <canvas id="solfegeRadar"></canvas>
+      </div>
     </section>
 
     <section class="stats-panel">
@@ -48,6 +63,16 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="stats.js?v=2.1.2"></script>
+  <script src="stats-storage.js?v=2.1.5"></script>
+  <script src="stats.js?v=2.1.5"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js?v=2.1.5").then((registration) => {
+          registration.update();
+        }).catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>

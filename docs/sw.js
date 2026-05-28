@@ -1,5 +1,5 @@
-const CACHE = "ear-training-2.1.4";
-const SHELL = ["index.html", "stats.html", "app.js", "stats.js", "styles.css"];
+const CACHE = "ear-training-2.1.5";
+const SHELL = ["index.html", "stats.html", "app.js", "stats.js", "stats-storage.js", "styles.css"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -28,6 +28,7 @@ function isShellRequest(url) {
   return (
     url.pathname.endsWith("/app.js") ||
     url.pathname.endsWith("/stats.js") ||
+    url.pathname.endsWith("/stats-storage.js") ||
     url.pathname.endsWith("/styles.css") ||
     url.pathname.endsWith("/index.html") ||
     url.pathname.endsWith("/stats.html")

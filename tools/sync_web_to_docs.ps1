@@ -3,8 +3,20 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $WebDir = Join-Path $Root "web"
 $DocsDir = Join-Path $Root "docs"
+$SyncVersion = Join-Path $PSScriptRoot "sync_version.ps1"
 
-$files = @("index.html", "app.js", "styles.css", "sw.js", "stats.html", "stats.js")
+& powershell -NoProfile -ExecutionPolicy Bypass -File $SyncVersion
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+$files = @(
+    "index.html",
+    "app.js",
+    "styles.css",
+    "sw.js",
+    "stats.html",
+    "stats.js",
+    "stats-storage.js"
+)
 
 if (-not (Test-Path $WebDir)) {
     Write-Host "Missing web/ directory." -ForegroundColor Red

@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Ear Training</title>
-  <!-- build: 2.1.4 -->
-  <link rel="stylesheet" href="styles.css?v=2.1.4">
+  <!-- build: 2.1.5 -->
+  <link rel="stylesheet" href="styles.css?v=2.1.5">
 </head>
 <body>
   <div class="app">
@@ -123,7 +123,7 @@
       <button id="pauseBtn" class="btn tool" type="button" disabled>Pause</button>
       <button id="startBtn" class="btn primary" disabled>Start</button>
       <button id="stopBtn" class="btn" disabled>Stop</button>
-      <button id="nextBtn" class="btn review-next hidden" type="button" disabled>Next â†’</button>
+      <button id="nextBtn" class="btn review-next hidden" type="button" disabled>Next â†?/button>
     </section>
 
     <p id="status" class="status"></p>
@@ -138,11 +138,12 @@
   <script>
     window.EAR_TRAINING_CUSTOM_CDN = "https://ear-training-1314657814.cos.ap-hongkong.myqcloud.com";
   </script>
-  <script src="app.js?v=2.1.4"></script>
+  <script src="stats-storage.js?v=2.1.5"></script>
+  <script src="app.js?v=2.1.5"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("sw.js?v=2.1.4").then((registration) => {
+        navigator.serviceWorker.register("sw.js?v=2.1.5").then((registration) => {
           registration.update();
         }).catch(() => {});
       });

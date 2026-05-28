@@ -79,7 +79,7 @@ coscmd config `
 
 Write-Host "Uploading site files with inline preview headers..." -ForegroundColor Cyan
 
-$webFiles = @("index.html", "app.js", "styles.css", "sw.js", "stats.html", "stats.js", ".nojekyll")
+$webFiles = @("index.html", "app.js", "styles.css", "sw.js", "stats.html", "stats.js", "stats-storage.js", ".nojekyll")
 foreach ($name in $webFiles) {
     $local = Join-Path $DocsDir $name
     if (Test-Path $local) {
